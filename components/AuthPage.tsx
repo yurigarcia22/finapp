@@ -60,8 +60,7 @@ const testimonials: Testimonial[] = [
     }
 ];
 
-const STATIC_IMAGE_URL = 'https://images.unsplash.com/photo-1634733600138-bf2b79a5dec7?q=80&w=2574&auto=format&fit=crop';
-
+const loginImageUrl = 'https://i.ibb.co/7thW9pyx/Gemini-Generated-Image-gumbxxgumbxxgumb.png';
 
 // --- MAIN COMPONENT ---
 export const AuthPage: React.FC = () => {
@@ -218,7 +217,7 @@ export const AuthPage: React.FC = () => {
       <section className="hidden md:block flex-1 relative p-4">
         <div 
           className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-secondary bg-cover bg-center transition-all duration-500"
-          style={{ backgroundImage: `url('${STATIC_IMAGE_URL}')` }}
+          style={{ backgroundImage: `url('${loginImageUrl}')` }}
         >
         </div>
         {testimonials.length > 0 && (
