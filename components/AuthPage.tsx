@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import { Eye, EyeOff } from 'lucide-react';
-import { GoogleGenAI, Modality } from '@google/genai';
 
 // --- HELPER COMPONENTS (ICONS) ---
 const GoogleIcon = () => (
@@ -61,6 +60,8 @@ const testimonials: Testimonial[] = [
     }
 ];
 
+const STATIC_IMAGE_URL = 'https://images.unsplash.com/photo-1634733600138-bf2b79a5dec7?q=80&w=2574&auto=format&fit=crop';
+
 
 // --- MAIN COMPONENT ---
 export const AuthPage: React.FC = () => {
@@ -72,47 +73,7 @@ export const AuthPage: React.FC = () => {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [imageLoading, setImageLoading] = useState(true);
-
-    useEffect(() => {
-        const generateImage = async () => {
-            try {
-                setImageLoading(true);
-                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-                const response = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash-image',
-                  contents: {
-                    parts: [
-                      {
-                        text: 'An abstract, futuristic, visually stunning image representing financial growth, data visualization, and technological innovation. Use a dark theme with vibrant, glowing accents of blue, purple, and green. The style should be sleek, modern, and professional, suitable for a financial technology application background.',
-                      },
-                    ],
-                  },
-                  config: {
-                      responseModalities: [Modality.IMAGE],
-                  },
-                });
-                for (const part of response.candidates[0].content.parts) {
-                  if (part.inlineData) {
-                    const base64ImageBytes: string = part.inlineData.data;
-                    const url = `data:image/png;base64,${base64ImageBytes}`;
-                    setImageUrl(url);
-                    break; // Exit after finding the first image
-                  }
-                }
-            } catch (e) {
-                console.error("Failed to generate image", e);
-                // Fallback to static image if generation fails
-                setImageUrl('https://images.unsplash.com/photo-1634733600138-bf2b79a5dec7?q=80&w=2574&auto=format&fit=crop');
-            } finally {
-                setImageLoading(false);
-            }
-        };
-
-        generateImage();
-    }, []);
-
+    
     const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!isLogin && !fullName) {
@@ -255,24 +216,12 @@ export const AuthPage: React.FC = () => {
 
       {/* Right column: hero image + testimonials */}
       <section className="hidden md:block flex-1 relative p-4">
-        <div className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-secondary bg-cover bg-center transition-all duration-500">
-            {imageLoading ? (
-                <div className="w-full h-full flex items-center justify-center bg-secondary rounded-3xl">
-                    <div className="animate-pulse flex flex-col items-center gap-2 text-muted-foreground">
-                        <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8 16a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM3.5 12.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm9 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM.5 8.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm15 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM3.5 3.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm9 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM8 4.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5z"/>
-                        </svg>
-                        <span className="text-sm">Gerando arte com IA...</span>
-                    </div>
-                </div>
-            ) : (
-                <div 
-                    className="w-full h-full rounded-3xl bg-cover bg-center"
-                    style={{ backgroundImage: `url('${imageUrl}')` }}
-                ></div>
-            )}
+        <div 
+          className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-secondary bg-cover bg-center transition-all duration-500"
+          style={{ backgroundImage: `url('${STATIC_IMAGE_URL}')` }}
+        >
         </div>
-        {testimonials.length > 0 && !imageLoading && (
+        {testimonials.length > 0 && (
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 px-8 w-full justify-center">
             <TestimonialCard testimonial={testimonials[0]} delay="animate-delay-1000" />
             {testimonials[1] && <div className="hidden xl:flex"><TestimonialCard testimonial={testimonials[1]} delay="animate-delay-1200" /></div>}
