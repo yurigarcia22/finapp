@@ -29,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, o
       <div className="flex flex-col w-64">
         <div className="flex flex-col flex-grow bg-[#10192A] pt-5 pb-4 overflow-y-auto">
           <div className="flex items-center flex-shrink-0 px-4">
-            <img src="/assets/logo.svg" alt="NG Fin Logo" className="h-8 w-8" />
+            <img src="/assets/logo.png" alt="NG Fin Logo" className="h-8 w-8" />
             <span className="ml-3 text-2xl font-bold text-white">NG Fin</span>
           </div>
           <div className="mt-8 flex-1 flex flex-col">
