@@ -1,0 +1,5 @@
+{
+  "name": "FinPilot",
+  "description": "A financial control application similar to Mobills/Organizze, designed to provide users with a comprehensive dashboard for managing their finances, including KPIs, account balances, budgets, and transaction categorization.",
+  "requestFramePermissions": []
+}
