@@ -1,6 +1,8 @@
 
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+
+
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -39,6 +41,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
   
   // Estados de visibilidade dos Modais
   const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -51,7 +54,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user || loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     try {
       const { data: accountsData, error: accountsError } = await supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
@@ -60,8 +64,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('user_id', user.id);
       if (categoriesError) throw new Error(`Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
       
-      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*, categories(*)').eq('user_id', user.id).order('date', { ascending: false });
-      if (transactionsError) throw new Error(`Erro ao carregar Transações: ${transactionsError.message}. Verifique a relação com 'categories' e as permissões (RLS).`);
+      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
+      if (transactionsError) throw new Error(`Erro ao carregar Transações: ${transactionsError.message}. Verifique as permissões (RLS).`);
       
       const { data: invoicesData, error: invoicesError } = await supabase.from('credit_invoices').select('*').eq('user_id', user.id);
       if (invoicesError) throw new Error(`Erro ao carregar Faturas: ${invoicesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
@@ -75,13 +79,14 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       setAccounts(accountsData || []);
       setCategories(categoriesData || []);
       
+      const categoriesMap = new Map((categoriesData || []).map(c => [c.id, c]));
       const mappedTransactions = transactionsData?.map((tx: any) => ({
         id: tx.id,
         description: tx.description,
         amount: tx.amount,
         date: tx.date,
         type: tx.type,
-        category: tx.categories as Category | null,
+        category: tx.category_id ? (categoriesMap.get(tx.category_id) as Category | undefined) || null : null,
         accountId: tx.account_id,
         status: tx.status,
       })) || [];
@@ -111,8 +116,9 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       addNotification({ title: 'Erro ao carregar dados', message: error.message, type: 'warning' });
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
-  }, [addNotification, user]);
+  }, [addNotification, user?.id]); // FIX: Depend on user.id (stable primitive) instead of the user object to prevent unnecessary refetches.
 
 
   useEffect(() => {
