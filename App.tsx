@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
@@ -544,17 +540,11 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const getSessionAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      if (session) {
-        await fetchProfile(session.user);
-      }
-      setLoading(false);
-    };
-
-    getSessionAndProfile();
-
+    // This effect hook now correctly uses onAuthStateChange as the single source
+    // of truth for the session. It sets up a listener that fires on initial load
+    // and any subsequent auth state changes (login/logout). The loading state is
+    // only set to false after this initial check is complete, preventing race
+    // conditions and the infinite loading screen issue.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session) {
@@ -562,6 +552,7 @@ const App = () => {
       } else {
         setProfile(null);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
