@@ -1,12 +1,13 @@
 import React from 'react';
-import { HomeIcon, SwapIcon, TargetIcon, CreditCardIcon, PieChartIcon, SlidersIcon, SettingsIcon, WalletIcon, TagIcon } from './icons';
+import { HomeIcon, SwapIcon, TargetIcon, CreditCardIcon, PieChartIcon, SlidersIcon, SettingsIcon, WalletIcon, TagIcon, LogOutIcon } from './icons';
 
 interface SidebarProps {
   currentPage: string;
   setCurrentPage: (page: string) => void;
+  onLogout: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, onLogout }) => {
 
   const navigation = [
     { name: 'Dashboard', icon: HomeIcon },
@@ -67,6 +68,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage })
                           {item.name}
                         </button>
                     ))}
+                    <button
+                        onClick={onLogout}
+                        className={`
+                        w-full text-left text-gray-300 hover:bg-gray-700 hover:text-white
+                        group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200
+                        `}
+                    >
+                        <LogOutIcon className="mr-3 flex-shrink-0 h-6 w-6" />
+                        Sair
+                    </button>
                  </nav>
             </div>
           </div>

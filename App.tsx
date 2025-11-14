@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
@@ -25,9 +26,10 @@ interface AppContentProps {
   session: Session;
   profile: Profile | null;
   refetchProfile: () => void;
+  onLogout: () => void;
 }
 
-const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfile }) => {
+const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfile, onLogout }) => {
   const { user } = session;
   const { addNotification } = useNotifications();
   // ==================================================================================
@@ -446,9 +448,9 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
 
   return (
       <div className="flex h-screen bg-[#0B0F1A] text-[#E2E8F0]">
-        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} onLogout={onLogout} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header user={user} profile={profile} setCurrentPage={setCurrentPage} />
+          <Header user={user} profile={profile} setCurrentPage={setCurrentPage} onLogout={onLogout} />
           <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0B0F1A] p-6 lg:p-8">
             {loading ? (
                 <div className="flex justify-center items-center h-full">
@@ -565,6 +567,10 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
   
+  const handleLogout = async () => {
+      await supabase.auth.signOut();
+  };
+
   const loadingSpinner = (
     <div className="flex justify-center items-center h-screen bg-[#0B0F1A]">
         <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -589,6 +595,7 @@ const App = () => {
                     session={session} 
                     profile={profile} 
                     refetchProfile={() => session.user ? fetchProfile(session.user) : Promise.resolve()}
+                    onLogout={handleLogout}
                 />
             )}
         </Suspense>
