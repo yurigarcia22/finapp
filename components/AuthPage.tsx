@@ -21,10 +21,9 @@ export interface Testimonial {
 }
 
 // --- SUB-COMPONENTS ---
-// FIX: Changed the component signature to use React.FC. This makes the `children` prop
-// optional by default in modern React types, resolving a TypeScript error where `children`
-// were incorrectly reported as missing, despite being provided in the JSX.
-const GlassInputWrapper: React.FC = ({ children }) => (
+// FIX: Explicitly define the 'children' prop for the component. In modern React with TypeScript,
+// React.FC no longer includes an implicit 'children' prop, so it must be declared in the component's props type.
+const GlassInputWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="rounded-2xl border border-border bg-foreground/5 backdrop-blur-sm transition-colors focus-within:border-violet-400/70 focus-within:bg-violet-500/10">
     {children}
   </div>
@@ -111,7 +110,10 @@ export const AuthPage: React.FC = () => {
                     // This custom error will be caught by the outer catch block
                     throw new Error("Sua conta foi criada, mas não foi possível salvar seu nome. Verifique se a tabela 'profiles' e suas permissões (RLS) estão configuradas corretamente no Supabase.");
                 }
-                // onAuthStateChange will handle redirect automatically
+                setMessage('Cadastro realizado! Por favor, verifique seu e-mail para confirmar sua conta.');
+                setEmail('');
+                setPassword('');
+                setFullName('');
             }
         } catch (err: any) {
             console.error("Authentication Error:", err);
