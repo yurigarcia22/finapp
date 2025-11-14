@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
@@ -13,8 +12,28 @@ import { PaymentModal } from './components/PaymentModal';
 import { BudgetModal } from './components/BudgetModal';
 import { RuleModal } from './components/RuleModal';
 import { CategoryModal } from './components/CategoryModal';
-import { TransactionsPage, BudgetsPage, CardsPage, AccountsPage, ReportsPage, RulesPage, SettingsPage, CategoriesPage } from './components/pages';
-import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, Budget, CreditInvoice, Rule, Profile } from './types';
+import {
+  TransactionsPage,
+  BudgetsPage,
+  CardsPage,
+  AccountsPage,
+  ReportsPage,
+  RulesPage,
+  SettingsPage,
+  CategoriesPage
+} from './components/pages';
+import {
+  Account,
+  AccountType,
+  Category,
+  CategoryType,
+  Transaction,
+  TransactionStatus,
+  Budget,
+  CreditInvoice,
+  Rule,
+  Profile
+} from './types';
 import { supabase } from './supabase';
 import { AuthPage } from './components/AuthPage';
 
@@ -40,7 +59,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
-  
+
   // Estados de visibilidade dos Modais
   const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
@@ -56,68 +75,113 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     loadingRef.current = true;
     setLoading(true);
     try {
-      const { data: accountsData, error: accountsError } = await supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-      if (accountsError) throw new Error(`Erro ao carregar Contas: ${accountsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
-      
-      const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('user_id', user.id);
-      if (categoriesError) throw new Error(`Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
-      
-      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false });
-      if (transactionsError) throw new Error(`Erro ao carregar Transações: ${transactionsError.message}. Verifique as permissões (RLS).`);
-      
-      const { data: invoicesData, error: invoicesError } = await supabase.from('credit_invoices').select('*').eq('user_id', user.id);
-      if (invoicesError) throw new Error(`Erro ao carregar Faturas: ${invoicesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
-      
-      const { data: budgetsData, error: budgetsError } = await supabase.from('budgets').select('*').eq('user_id', user.id);
-      if (budgetsError) throw new Error(`Erro ao carregar Orçamentos: ${budgetsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
-      
-      const { data: rulesData, error: rulesError } = await supabase.from('rules').select('*').eq('user_id', user.id);
-      if (rulesError) throw new Error(`Erro ao carregar Regras: ${rulesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
+      const { data: accountsData, error: accountsError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (accountsError)
+        throw new Error(
+          `Erro ao carregar Contas: ${accountsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
+        );
+
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('user_id', user.id);
+      if (categoriesError)
+        throw new Error(
+          `Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
+        );
+
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false });
+      if (transactionsError)
+        throw new Error(
+          `Erro ao carregar Transações: ${transactionsError.message}. Verifique as permissões (RLS).`
+        );
+
+      const { data: invoicesData, error: invoicesError } = await supabase
+        .from('credit_invoices')
+        .select('*')
+        .eq('user_id', user.id);
+      if (invoicesError)
+        throw new Error(
+          `Erro ao carregar Faturas: ${invoicesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
+        );
+
+      const { data: budgetsData, error: budgetsError } = await supabase
+        .from('budgets')
+        .select('*')
+        .eq('user_id', user.id);
+      if (budgetsError)
+        throw new Error(
+          `Erro ao carregar Orçamentos: ${budgetsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
+        );
+
+      const { data: rulesData, error: rulesError } = await supabase
+        .from('rules')
+        .select('*')
+        .eq('user_id', user.id);
+      if (rulesError)
+        throw new Error(
+          `Erro ao carregar Regras: ${rulesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
+        );
 
       setAccounts(accountsData || []);
       setCategories(categoriesData || []);
-      
+
       const categoriesMap = new Map((categoriesData || []).map(c => [c.id, c]));
-      const mappedTransactions = transactionsData?.map((tx: any) => ({
-        id: tx.id,
-        description: tx.description,
-        amount: tx.amount,
-        date: tx.date,
-        type: tx.type,
-        category: tx.category_id ? (categoriesMap.get(tx.category_id) as Category | undefined) || null : null,
-        accountId: tx.account_id,
-        status: tx.status,
-      })) || [];
+      const mappedTransactions =
+        transactionsData?.map((tx: any) => ({
+          id: tx.id,
+          description: tx.description,
+          amount: tx.amount,
+          date: tx.date,
+          type: tx.type,
+          category: tx.category_id
+            ? ((categoriesMap.get(tx.category_id) as Category | undefined) || null)
+            : null,
+          accountId: tx.account_id,
+          status: tx.status
+        })) || [];
       setTransactions(mappedTransactions);
-      
-      const mappedInvoices = invoicesData?.map((inv: any) => ({
-        id: inv.id,
-        cardId: inv.card_id,
-        month: inv.month,
-        status: inv.status,
-        amount: inv.amount,
-        dueDate: inv.due_date,
-      })) || [];
+
+      const mappedInvoices =
+        invoicesData?.map((inv: any) => ({
+          id: inv.id,
+          cardId: inv.card_id,
+          month: inv.month,
+          status: inv.status,
+          amount: inv.amount,
+          dueDate: inv.due_date
+        })) || [];
       setInvoices(mappedInvoices);
 
-      const mappedBudgets = budgetsData?.map((b: any) => ({
-        id: b.id,
-        categoryId: b.category_id,
-        amount: b.amount,
-      })) || [];
+      const mappedBudgets =
+        budgetsData?.map((b: any) => ({
+          id: b.id,
+          categoryId: b.category_id,
+          amount: b.amount
+        })) || [];
       setBudgets(mappedBudgets);
-      
-      setRules(rulesData || []);
 
+      setRules(rulesData || []);
     } catch (error: any) {
-      console.error("Error fetching data:", error);
-      addNotification({ title: 'Erro ao carregar dados', message: error.message, type: 'warning' });
+      console.error('Error fetching data:', error);
+      addNotification({
+        title: 'Erro ao carregar dados',
+        message: error.message,
+        type: 'warning'
+      });
     } finally {
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [addNotification, user?.id]); // FIX: Depend on user.id (stable primitive) instead of the user object to prevent unnecessary refetches.
-
+  }, [addNotification, user?.id]); // depende só do user.id
 
   useEffect(() => {
     fetchData();
@@ -126,139 +190,239 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   // ==================================================================================
   // FUNÇÕES HANDLER PARA MODIFICAR O ESTADO
   // ==================================================================================
-   const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id'>) => {
+  const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id'>) => {
     const { category, accountId, ...rest } = newTransaction;
     const { error } = await supabase.from('transactions').insert({
       ...rest,
       account_id: accountId,
       category_id: category?.id,
-      user_id: user.id,
+      user_id: user.id
     });
-    
+
     if (error) {
-       addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação.', type: 'warning' });
-       console.error(error);
-       return;
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível salvar a transação.',
+        type: 'warning'
+      });
+      console.error(error);
+      return;
     }
 
     // Update account balance or invoice amount
     const account = accounts.find(acc => acc.id === newTransaction.accountId);
     if (account?.type === AccountType.CREDIT_CARD) {
-        const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', newTransaction.accountId).eq('status', 'Aberta').single();
-        if (openInvoice) {
-            const amountChange = newTransaction.type === CategoryType.INCOME ? -newTransaction.amount : newTransaction.amount;
-            await supabase.from('credit_invoices').update({ amount: openInvoice.amount + amountChange }).eq('id', openInvoice.id).eq('user_id', user.id);
-        }
+      const { data: openInvoice } = await supabase
+        .from('credit_invoices')
+        .select('*')
+        .eq('card_id', newTransaction.accountId)
+        .eq('status', 'Aberta')
+        .single();
+      if (openInvoice) {
+        const amountChange =
+          newTransaction.type === CategoryType.INCOME
+            ? -newTransaction.amount
+            : newTransaction.amount;
+        await supabase
+          .from('credit_invoices')
+          .update({ amount: openInvoice.amount + amountChange })
+          .eq('id', openInvoice.id)
+          .eq('user_id', user.id);
+      }
     } else if (account) {
-        const amountChange = newTransaction.type === CategoryType.INCOME ? newTransaction.amount : -newTransaction.amount;
-        await supabase.from('accounts').update({ balance: account.balance + amountChange }).eq('id', account.id).eq('user_id', user.id);
+      const amountChange =
+        newTransaction.type === CategoryType.INCOME
+          ? newTransaction.amount
+          : -newTransaction.amount;
+      await supabase
+        .from('accounts')
+        .update({ balance: account.balance + amountChange })
+        .eq('id', account.id)
+        .eq('user_id', user.id);
     }
-    
-    addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
+
+    addNotification({
+      title: 'Sucesso',
+      message: 'Transação salva com sucesso!',
+      type: 'success'
+    });
     await fetchData();
     setTransactionModalOpen(false);
   };
 
   const handleCreateAccount = async (newAccount: Omit<Account, 'id' | 'currency'>) => {
-    const { data, error } = await supabase.from('accounts').insert({ ...newAccount, currency: 'BRL', user_id: user.id }).select().single();
+    const { data, error } = await supabase
+      .from('accounts')
+      .insert({ ...newAccount, currency: 'BRL', user_id: user.id })
+      .select()
+      .single();
 
     if (error) {
-        addNotification({ title: 'Erro', message: 'Não foi possível criar a conta.', type: 'warning' });
-        console.error(error);
-        return;
-    }
-    
-    if (data && newAccount.type === AccountType.CREDIT_CARD) {
-        const now = new Date();
-        const currentMonthName = now.toLocaleString('pt-BR', { month: 'long' });
-        const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
-        
-        const newInvoice = {
-            card_id: data.id,
-            month: capitalizedMonth,
-            status: 'Aberta' as const,
-            amount: 0,
-            due_date: new Date(now.getFullYear(), now.getMonth() + 1, 15).toISOString().split('T')[0],
-            user_id: user.id,
-        };
-        await supabase.from('credit_invoices').insert(newInvoice);
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível criar a conta.',
+        type: 'warning'
+      });
+      console.error(error);
+      return;
     }
 
-    addNotification({ title: 'Sucesso', message: 'Conta criada com sucesso!', type: 'success' });
+    if (data && newAccount.type === AccountType.CREDIT_CARD) {
+      const now = new Date();
+      const currentMonthName = now.toLocaleString('pt-BR', { month: 'long' });
+      const capitalizedMonth =
+        currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
+
+      const newInvoice = {
+        card_id: data.id,
+        month: capitalizedMonth,
+        status: 'Aberta' as const,
+        amount: 0,
+        due_date: new Date(now.getFullYear(), now.getMonth() + 1, 15)
+          .toISOString()
+          .split('T')[0],
+        user_id: user.id
+      };
+      await supabase.from('credit_invoices').insert(newInvoice);
+    }
+
+    addNotification({
+      title: 'Sucesso',
+      message: 'Conta criada com sucesso!',
+      type: 'success'
+    });
     await fetchData();
     setAccountModalOpen(false);
   };
 
   const handleUpdateAccount = async (updatedAccount: Account) => {
-    const { error } = await supabase.from('accounts').update({ 
-      name: updatedAccount.name,
-      balance: updatedAccount.balance,
-      limit: updatedAccount.limit 
-    }).eq('id', updatedAccount.id).eq('user_id', user.id);
+    const { error } = await supabase
+      .from('accounts')
+      .update({
+        name: updatedAccount.name,
+        balance: updatedAccount.balance,
+        limit: updatedAccount.limit
+      })
+      .eq('id', updatedAccount.id)
+      .eq('user_id', user.id);
 
     if (error) {
-       addNotification({ title: 'Erro', message: 'Não foi possível atualizar a conta.', type: 'warning' });
-       console.error(error);
-       return;
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível atualizar a conta.',
+        type: 'warning'
+      });
+      console.error(error);
+      return;
     }
-    
-    addNotification({ title: 'Sucesso', message: 'Conta atualizada com sucesso!', type: 'success' });
+
+    addNotification({
+      title: 'Sucesso',
+      message: 'Conta atualizada com sucesso!',
+      type: 'success'
+    });
     await fetchData();
     setEditingAccount(null);
     setAccountModalOpen(false);
   };
 
-    const handleDeleteAccount = async (accountId: string) => {
-        const { data: associatedTransactions, error: txCheckError } = await supabase.from('transactions').select('id', { count: 'exact' }).eq('account_id', accountId).eq('user_id', user.id);
-        const { data: associatedInvoices, error: invoiceCheckError } = await supabase.from('credit_invoices').select('id', { count: 'exact' }).eq('card_id', accountId).eq('user_id', user.id);
-        
-        const txCount = associatedTransactions?.length || 0;
-        const invoiceCount = associatedInvoices?.length || 0;
+  const handleDeleteAccount = async (accountId: string) => {
+    const { data: associatedTransactions, error: txCheckError } = await supabase
+      .from('transactions')
+      .select('id', { count: 'exact' })
+      .eq('account_id', accountId)
+      .eq('user_id', user.id);
+    const { data: associatedInvoices, error: invoiceCheckError } = await supabase
+      .from('credit_invoices')
+      .select('id', { count: 'exact' })
+      .eq('card_id', accountId)
+      .eq('user_id', user.id);
 
-        if (txCheckError || invoiceCheckError) {
-            addNotification({ title: 'Erro de Verificação', message: 'Não foi possível verificar os dados associados à conta.', type: 'warning' });
-            return;
-        }
+    const txCount = associatedTransactions?.length || 0;
+    const invoiceCount = associatedInvoices?.length || 0;
 
-        let confirmMessage = 'Tem certeza que deseja excluir esta conta?';
-        if (txCount > 0 || invoiceCount > 0) {
-            confirmMessage += `\n\nATENÇÃO: Esta ação é permanente e também excluirá:\n- ${txCount} transações associadas\n- ${invoiceCount} faturas associadas`;
-        }
+    if (txCheckError || invoiceCheckError) {
+      addNotification({
+        title: 'Erro de Verificação',
+        message: 'Não foi possível verificar os dados associados à conta.',
+        type: 'warning'
+      });
+      return;
+    }
 
-        if (window.confirm(confirmMessage)) {
-            if (txCount > 0) {
-                await supabase.from('transactions').delete().eq('account_id', accountId).eq('user_id', user.id);
-            }
-            if (invoiceCount > 0) {
-                await supabase.from('credit_invoices').delete().eq('card_id', accountId).eq('user_id', user.id);
-            }
-            
-            const { error } = await supabase.from('accounts').delete().eq('id', accountId).eq('user_id', user.id);
+    let confirmMessage = 'Tem certeza que deseja excluir esta conta?';
+    if (txCount > 0 || invoiceCount > 0) {
+      confirmMessage += `\n\nATENÇÃO: Esta ação é permanente e também excluirá:\n- ${txCount} transações associadas\n- ${invoiceCount} faturas associadas`;
+    }
 
-            if (error) {
-                addNotification({ title: 'Erro ao Excluir', message: `Não foi possível excluir a conta.`, type: 'warning' });
-            } else {
-                addNotification({ title: 'Sucesso', message: 'Conta e dados associados excluídos com sucesso.', type: 'success' });
-                await fetchData();
-            }
-        }
-    };
-  
-  const handleEditAccount = (account: Account) => {
-      setEditingAccount(account);
-      setAccountModalOpen(true);
+    if (window.confirm(confirmMessage)) {
+      if (txCount > 0) {
+        await supabase
+          .from('transactions')
+          .delete()
+          .eq('account_id', accountId)
+          .eq('user_id', user.id);
+      }
+      if (invoiceCount > 0) {
+        await supabase
+          .from('credit_invoices')
+          .delete()
+          .eq('card_id', accountId)
+          .eq('user_id', user.id);
+      }
+
+      const { error } = await supabase
+        .from('accounts')
+        .delete()
+        .eq('id', accountId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        addNotification({
+          title: 'Erro ao Excluir',
+          message: `Não foi possível excluir a conta.`,
+          type: 'warning'
+        });
+      } else {
+        addNotification({
+          title: 'Sucesso',
+          message: 'Conta e dados associados excluídos com sucesso.',
+          type: 'success'
+        });
+        await fetchData();
+      }
+    }
   };
-  
-  const handlePayInvoice = async (invoiceId: string, paymentAccountId: string, amount: number) => {
-    const { error: invoiceError } = await supabase.from('credit_invoices').update({ status: 'Paga' }).eq('id', invoiceId).eq('user_id', user.id);
-     if (invoiceError) {
-        addNotification({ title: 'Erro', message: 'Não foi possível pagar a fatura.', type: 'warning' });
-        console.error(invoiceError);
-        return;
+
+  const handleEditAccount = (account: Account) => {
+    setEditingAccount(account);
+    setAccountModalOpen(true);
+  };
+
+  const handlePayInvoice = async (
+    invoiceId: string,
+    paymentAccountId: string,
+    amount: number
+  ) => {
+    const { error: invoiceError } = await supabase
+      .from('credit_invoices')
+      .update({ status: 'Paga' })
+      .eq('id', invoiceId)
+      .eq('user_id', user.id);
+    if (invoiceError) {
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível pagar a fatura.',
+        type: 'warning'
+      });
+      console.error(invoiceError);
+      return;
     }
 
     const paymentTransaction: Omit<Transaction, 'id'> = {
-      description: `Pagamento Fatura ${invoices.find(i => i.id === invoiceId)?.month}`,
+      description: `Pagamento Fatura ${
+        invoices.find(i => i.id === invoiceId)?.month
+      }`,
       amount: amount,
       date: new Date().toISOString().split('T')[0],
       type: CategoryType.EXPENSE,
@@ -273,250 +437,466 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const openPaymentModal = (invoice: CreditInvoice) => {
     setSelectedInvoice(invoice);
     setPaymentModalOpen(true);
-  }
-  
+  };
+
   const handleSaveBudget = async (newBudget: Omit<Budget, 'id'>) => {
     const { error } = await supabase.from('budgets').insert({
-        category_id: newBudget.categoryId,
-        amount: newBudget.amount,
-        user_id: user.id,
+      category_id: newBudget.categoryId,
+      amount: newBudget.amount,
+      user_id: user.id
     });
-    if(error){
-        addNotification({ title: 'Erro', message: 'Não foi possível salvar o orçamento.', type: 'warning' });
+    if (error) {
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível salvar o orçamento.',
+        type: 'warning'
+      });
     } else {
-        addNotification({ title: 'Sucesso', message: 'Orçamento salvo com sucesso!', type: 'success' });
-        await fetchData();
-        setBudgetModalOpen(false);
+      addNotification({
+        title: 'Sucesso',
+        message: 'Orçamento salvo com sucesso!',
+        type: 'success'
+      });
+      await fetchData();
+      setBudgetModalOpen(false);
     }
   };
-  
+
   const handleSaveRule = async (newRule: Omit<Rule, 'id'>) => {
-     const { error } = await supabase.from('rules').insert({...newRule, user_id: user.id});
-    if(error){
-        addNotification({ title: 'Erro', message: 'Não foi possível salvar a regra.', type: 'warning' });
+    const { error } = await supabase
+      .from('rules')
+      .insert({ ...newRule, user_id: user.id });
+    if (error) {
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível salvar a regra.',
+        type: 'warning'
+      });
     } else {
-        addNotification({ title: 'Sucesso', message: 'Regra salva com sucesso!', type: 'success' });
-        await fetchData();
-        setRuleModalOpen(false);
+      addNotification({
+        title: 'Sucesso',
+        message: 'Regra salva com sucesso!',
+        type: 'success'
+      });
+      await fetchData();
+      setRuleModalOpen(false);
     }
   };
 
   const handleSaveCategory = async (newCategory: Omit<Category, 'id'>) => {
-    const { error } = await supabase.from('categories').insert({...newCategory, user_id: user.id});
-     if(error){
-        addNotification({ title: 'Erro', message: 'Não foi possível salvar a categoria.', type: 'warning' });
+    const { error } = await supabase
+      .from('categories')
+      .insert({ ...newCategory, user_id: user.id });
+    if (error) {
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível salvar a categoria.',
+        type: 'warning'
+      });
     } else {
-        addNotification({ title: 'Sucesso', message: 'Categoria salva com sucesso!', type: 'success' });
-        await fetchData();
-        setCategoryModalOpen(false);
+      addNotification({
+        title: 'Sucesso',
+        message: 'Categoria salva com sucesso!',
+        type: 'success'
+      });
+      await fetchData();
+      setCategoryModalOpen(false);
     }
   };
 
-    const handleDeleteCategory = async (categoryId: string) => {
-        const { data: associatedTransactions, error: checkTxError } = await supabase.from('transactions').select('id', { count: 'exact' }).eq('category_id', categoryId).eq('user_id', user.id);
-        const { data: associatedBudgets, error: checkBudgetError } = await supabase.from('budgets').select('id', { count: 'exact' }).eq('category_id', categoryId).eq('user_id', user.id);
+  const handleDeleteCategory = async (categoryId: string) => {
+    const { data: associatedTransactions, error: checkTxError } = await supabase
+      .from('transactions')
+      .select('id', { count: 'exact' })
+      .eq('category_id', categoryId)
+      .eq('user_id', user.id);
+    const { data: associatedBudgets, error: checkBudgetError } = await supabase
+      .from('budgets')
+      .select('id', { count: 'exact' })
+      .eq('category_id', categoryId)
+      .eq('user_id', user.id);
 
-        if (checkTxError || checkBudgetError) {
-            addNotification({ title: 'Erro', message: 'Não foi possível verificar o uso da categoria.', type: 'warning' });
-            return;
+    if (checkTxError || checkBudgetError) {
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível verificar o uso da categoria.',
+        type: 'warning'
+      });
+      return;
+    }
+
+    const txCount = associatedTransactions?.length || 0;
+    const budgetCount = associatedBudgets?.length || 0;
+
+    if (txCount > 0 || budgetCount > 0) {
+      let confirmMessage =
+        'Esta categoria está sendo usada. Deseja continuar com a exclusão?\n\nATENÇÃO:';
+      if (txCount > 0)
+        confirmMessage += `\n- ${txCount} transações serão desvinculadas (não excluídas).`;
+      if (budgetCount > 0)
+        confirmMessage += `\n- ${budgetCount} orçamentos associados serão PERMANENTEMENTE excluídos.`;
+
+      if (window.confirm(confirmMessage)) {
+        if (budgetCount > 0) {
+          await supabase
+            .from('budgets')
+            .delete()
+            .eq('category_id', categoryId)
+            .eq('user_id', user.id);
         }
-
-        const txCount = associatedTransactions?.length || 0;
-        const budgetCount = associatedBudgets?.length || 0;
-
-        if (txCount > 0 || budgetCount > 0) {
-            let confirmMessage = 'Esta categoria está sendo usada. Deseja continuar com a exclusão?\n\nATENÇÃO:';
-            if (txCount > 0) confirmMessage += `\n- ${txCount} transações serão desvinculadas (não excluídas).`;
-            if (budgetCount > 0) confirmMessage += `\n- ${budgetCount} orçamentos associados serão PERMANENTEMENTE excluídos.`;
-
-            if (window.confirm(confirmMessage)) {
-                if (budgetCount > 0) {
-                    await supabase.from('budgets').delete().eq('category_id', categoryId).eq('user_id', user.id);
-                }
-                if (txCount > 0) {
-                    await supabase.from('transactions').update({ category_id: null }).eq('category_id', categoryId).eq('user_id', user.id);
-                }
-            } else {
-                return; // User cancelled
-            }
+        if (txCount > 0) {
+          await supabase
+            .from('transactions')
+            .update({ category_id: null })
+            .eq('category_id', categoryId)
+            .eq('user_id', user.id);
         }
-        
-        if (window.confirm('Tem certeza que deseja excluir esta categoria? A ação não pode ser desfeita.')) {
-            const { error: deleteError } = await supabase.from('categories').delete().eq('id', categoryId).eq('user_id', user.id);
-            if (deleteError) {
-                addNotification({ title: 'Erro', message: `Não foi possível excluir a categoria.`, type: 'warning' });
-            } else {
-                addNotification({ title: 'Sucesso', message: 'Categoria excluída com sucesso!', type: 'success' });
-                await fetchData();
-            }
-        }
-    };
+      } else {
+        return; // User cancelled
+      }
+    }
 
+    if (
+      window.confirm(
+        'Tem certeza que deseja excluir esta categoria? A ação não pode ser desfeita.'
+      )
+    ) {
+      const { error: deleteError } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', categoryId)
+        .eq('user_id', user.id);
+      if (deleteError) {
+        addNotification({
+          title: 'Erro',
+          message: `Não foi possível excluir a categoria.`,
+          type: 'warning'
+        });
+      } else {
+        addNotification({
+          title: 'Sucesso',
+          message: 'Categoria excluída com sucesso!',
+          type: 'success'
+        });
+        await fetchData();
+      }
+    }
+  };
 
   const toggleRule = async (rule: Rule) => {
-    const { error } = await supabase.from('rules').update({ enabled: !rule.enabled }).eq('id', rule.id).eq('user_id', user.id);
+    const { error } = await supabase
+      .from('rules')
+      .update({ enabled: !rule.enabled })
+      .eq('id', rule.id)
+      .eq('user_id', user.id);
     if (error) {
-        addNotification({ title: 'Erro', message: 'Não foi possível alterar a regra.', type: 'warning' });
+      addNotification({
+        title: 'Erro',
+        message: 'Não foi possível alterar a regra.',
+        type: 'warning'
+      });
     } else {
-        await fetchData();
+      await fetchData();
     }
   };
 
   const handleDeleteRule = async (ruleId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta regra?')) {
-        const { error } = await supabase.from('rules').delete().eq('id', ruleId).eq('user_id', user.id);
-        if (error) {
-            addNotification({ title: 'Erro', message: 'Não foi possível excluir a regra.', type: 'warning' });
-        } else {
-            addNotification({ title: 'Sucesso', message: 'Regra excluída com sucesso!', type: 'success' });
-            await fetchData();
-        }
+      const { error } = await supabase
+        .from('rules')
+        .delete()
+        .eq('id', ruleId)
+        .eq('user_id', user.id);
+      if (error) {
+        addNotification({
+          title: 'Erro',
+          message: 'Não foi possível excluir a regra.',
+          type: 'warning'
+        });
+      } else {
+        addNotification({
+          title: 'Sucesso',
+          message: 'Regra excluída com sucesso!',
+          type: 'success'
+        });
+        await fetchData();
+      }
     }
   };
 
   const handleDeleteTransaction = async (transaction: Transaction) => {
     if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-        const { error } = await supabase.from('transactions').delete().eq('id', transaction.id).eq('user_id', user.id);
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transaction.id)
+        .eq('user_id', user.id);
 
-        if (error) {
-            addNotification({ title: 'Erro', message: 'Não foi possível excluir a transação.', type: 'warning' });
-            return;
-        }
+      if (error) {
+        addNotification({
+          title: 'Erro',
+          message: 'Não foi possível excluir a transação.',
+          type: 'warning'
+        });
+        return;
+      }
 
-        const { data: account } = await supabase.from('accounts').select('id, type, balance').eq('id', transaction.accountId).eq('user_id', user.id).single();
-        
-        if (!account) {
-            addNotification({ title: 'Erro', message: 'Conta associada não encontrada. O balanço pode estar incorreto.', type: 'warning' });
-            await fetchData();
-            return;
-        }
+      const { data: account } = await supabase
+        .from('accounts')
+        .select('id, type, balance')
+        .eq('id', transaction.accountId)
+        .eq('user_id', user.id)
+        .single();
 
-        if (account.type === AccountType.CREDIT_CARD) {
-            const { data: openInvoice } = await supabase.from('credit_invoices').select('id, amount').eq('card_id', transaction.accountId).eq('status', 'Aberta').eq('user_id', user.id).single();
-            if (openInvoice) {
-                const amountChange = transaction.type === CategoryType.INCOME ? transaction.amount : -transaction.amount;
-                await supabase.from('credit_invoices').update({ amount: openInvoice.amount + amountChange }).eq('id', openInvoice.id).eq('user_id', user.id);
-            }
-        } else {
-            const amountChange = transaction.type === CategoryType.INCOME ? -transaction.amount : transaction.amount;
-            await supabase.from('accounts').update({ balance: account.balance + amountChange }).eq('id', account.id).eq('user_id', user.id);
-        }
-
-        addNotification({ title: 'Sucesso', message: 'Transação excluída com sucesso!', type: 'success' });
+      if (!account) {
+        addNotification({
+          title: 'Erro',
+          message: 'Conta associada não encontrada. O balanço pode estar incorreto.',
+          type: 'warning'
+        });
         await fetchData();
+        return;
+      }
+
+      if (account.type === AccountType.CREDIT_CARD) {
+        const { data: openInvoice } = await supabase
+          .from('credit_invoices')
+          .select('id, amount')
+          .eq('card_id', transaction.accountId)
+          .eq('status', 'Aberta')
+          .eq('user_id', user.id)
+          .single();
+        if (openInvoice) {
+          const amountChange =
+            transaction.type === CategoryType.INCOME
+              ? transaction.amount
+              : -transaction.amount;
+          await supabase
+            .from('credit_invoices')
+            .update({ amount: openInvoice.amount + amountChange })
+            .eq('id', openInvoice.id)
+            .eq('user_id', user.id);
+        }
+      } else {
+        const amountChange =
+          transaction.type === CategoryType.INCOME
+            ? -transaction.amount
+            : transaction.amount;
+        await supabase
+          .from('accounts')
+          .update({ balance: account.balance + amountChange })
+          .eq('id', account.id)
+          .eq('user_id', user.id);
+      }
+
+      addNotification({
+        title: 'Sucesso',
+        message: 'Transação excluída com sucesso!',
+        type: 'success'
+      });
+      await fetchData();
     }
   };
-
 
   const renderPage = () => {
     const pageProps = { accounts, categories, transactions };
     switch (currentPage) {
       case 'Dashboard':
-        return <Dashboard accounts={accounts} transactions={transactions} categories={categories} budgets={budgets} invoices={invoices} />;
+        return (
+          <Dashboard
+            accounts={accounts}
+            transactions={transactions}
+            categories={categories}
+            budgets={budgets}
+            invoices={invoices}
+          />
+        );
       case 'Transações':
-        return <TransactionsPage {...pageProps} onDeleteTransaction={handleDeleteTransaction} />;
+        return (
+          <TransactionsPage
+            {...pageProps}
+            onDeleteTransaction={handleDeleteTransaction}
+          />
+        );
       case 'Orçamentos':
-        return <BudgetsPage budgets={budgets} transactions={transactions} categories={categories} onAddBudget={() => setBudgetModalOpen(true)} />;
+        return (
+          <BudgetsPage
+            budgets={budgets}
+            transactions={transactions}
+            categories={categories}
+            onAddBudget={() => setBudgetModalOpen(true)}
+          />
+        );
       case 'Cartões':
-        return <CardsPage accounts={accounts} invoices={invoices} onPayInvoice={openPaymentModal} transactions={transactions} />;
+        return (
+          <CardsPage
+            accounts={accounts}
+            invoices={invoices}
+            onPayInvoice={openPaymentModal}
+            transactions={transactions}
+          />
+        );
       case 'Contas':
-        return <AccountsPage 
-                    accounts={accounts} 
-                    onAddAccount={() => {
-                        setEditingAccount(null);
-                        setAccountModalOpen(true);
-                    }}
-                    onEditAccount={handleEditAccount}
-                    onDeleteAccount={handleDeleteAccount}
-                />;
+        return (
+          <AccountsPage
+            accounts={accounts}
+            onAddAccount={() => {
+              setEditingAccount(null);
+              setAccountModalOpen(true);
+            }}
+            onEditAccount={handleEditAccount}
+            onDeleteAccount={handleDeleteAccount}
+          />
+        );
       case 'Relatórios':
         return <ReportsPage transactions={transactions} />;
       case 'Regras':
-        return <RulesPage rules={rules} onAddRule={() => setRuleModalOpen(true)} onToggleRule={toggleRule} onDeleteRule={handleDeleteRule} />;
+        return (
+          <RulesPage
+            rules={rules}
+            onAddRule={() => setRuleModalOpen(true)}
+            onToggleRule={toggleRule}
+            onDeleteRule={handleDeleteRule}
+          />
+        );
       case 'Categorias':
-        return <CategoriesPage categories={categories} onAddCategory={() => setCategoryModalOpen(true)} onDeleteCategory={handleDeleteCategory} />;
+        return (
+          <CategoriesPage
+            categories={categories}
+            onAddCategory={() => setCategoryModalOpen(true)}
+            onDeleteCategory={handleDeleteCategory}
+          />
+        );
       case 'Configurações':
-        return <SettingsPage user={user} profile={profile} onProfileUpdate={refetchProfile} />;
+        return (
+          <SettingsPage
+            user={user}
+            profile={profile}
+            onProfileUpdate={refetchProfile}
+          />
+        );
       default:
-        return <Dashboard accounts={accounts} transactions={transactions} categories={categories} budgets={budgets} invoices={invoices} />;
+        return (
+          <Dashboard
+            accounts={accounts}
+            transactions={transactions}
+            categories={categories}
+            budgets={budgets}
+            invoices={invoices}
+          />
+        );
     }
   };
 
   return (
-      <div className="flex h-screen bg-[#0B0F1A] text-[#E2E8F0]">
-        <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} onLogout={onLogout} />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header user={user} profile={profile} setCurrentPage={setCurrentPage} onLogout={onLogout} />
-          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0B0F1A] p-6 lg:p-8">
-            {loading ? (
-                <div className="flex justify-center items-center h-full">
-                    <svg className="animate-spin -ml-1 mr-3 h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span className="text-xl">Carregando dados...</span>
-                </div>
-            ) : renderPage()}
-          </main>
-        </div>
-        <button 
-          onClick={() => setTransactionModalOpen(true)}
-          className="fixed bottom-8 right-8 bg-[#6464FF] text-white p-4 rounded-full shadow-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0F1A] focus:ring-[#6464FF] transition-transform duration-200 ease-in-out hover:scale-110 z-30"
-          aria-label="Adicionar Nova Transação"
-        >
-          <PlusIcon className="h-6 w-6" />
-        </button>
-        <NotificationToasts />
-        
-        {/* MODAIS */}
-        <TransactionModal 
-          isOpen={isTransactionModalOpen} 
-          onClose={() => setTransactionModalOpen(false)}
-          onSave={handleSaveTransaction}
-          accounts={accounts}
-          categories={categories}
+    <div className="flex h-screen bg-[#0B0F1A] text-[#E2E8F0]">
+      <Sidebar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        onLogout={onLogout}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header
+          user={user}
+          profile={profile}
+          setCurrentPage={setCurrentPage}
+          onLogout={onLogout}
         />
-        <AccountModal
-          isOpen={isAccountModalOpen}
-          onClose={() => {
-              setAccountModalOpen(false);
-              setEditingAccount(null);
-          }}
-          onSave={(accountData) => {
-              if ('id' in accountData) {
-                  handleUpdateAccount(accountData as Account);
-              } else {
-                  handleCreateAccount(accountData as Omit<Account, 'id' | 'currency'>);
-              }
-          }}
-          accountToEdit={editingAccount}
-        />
-        {selectedInvoice && (
-          <PaymentModal
-            isOpen={isPaymentModalOpen}
-            onClose={() => { setPaymentModalOpen(false); setSelectedInvoice(null); }}
-            onSave={handlePayInvoice}
-            invoice={selectedInvoice}
-            paymentAccounts={accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD)}
-          />
-        )}
-        <BudgetModal
-          isOpen={isBudgetModalOpen}
-          onClose={() => setBudgetModalOpen(false)}
-          onSave={handleSaveBudget}
-          categories={categories.filter(c => c.type === CategoryType.EXPENSE)}
-        />
-        <RuleModal
-          isOpen={isRuleModalOpen}
-          onClose={() => setRuleModalOpen(false)}
-          onSave={handleSaveRule}
-        />
-        <CategoryModal
-            isOpen={isCategoryModalOpen}
-            onClose={() => setCategoryModalOpen(false)}
-            onSave={handleSaveCategory}
-        />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0B0F1A] p-6 lg:p-8">
+          {loading ? (
+            <div className="flex justify-center items-center h-full">
+              <svg
+                className="animate-spin -ml-1 mr-3 h-10 w-10 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span className="text-xl">Carregando dados...</span>
+            </div>
+          ) : (
+            renderPage()
+          )}
+        </main>
       </div>
+      <button
+        onClick={() => setTransactionModalOpen(true)}
+        className="fixed bottom-8 right-8 bg-[#6464FF] text-white p-4 rounded-full shadow-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0F1A] focus:ring-[#6464FF] transition-transform duration-200 ease-in-out hover:scale-110 z-30"
+        aria-label="Adicionar Nova Transação"
+      >
+        <PlusIcon className="h-6 w-6" />
+      </button>
+      <NotificationToasts />
+
+      {/* MODAIS */}
+      <TransactionModal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setTransactionModalOpen(false)}
+        onSave={handleSaveTransaction}
+        accounts={accounts}
+        categories={categories}
+      />
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => {
+          setAccountModalOpen(false);
+          setEditingAccount(null);
+        }}
+        onSave={accountData => {
+          if ('id' in accountData) {
+            handleUpdateAccount(accountData as Account);
+          } else {
+            handleCreateAccount(
+              accountData as Omit<Account, 'id' | 'currency'>
+            );
+          }
+        }}
+        accountToEdit={editingAccount}
+      />
+      {selectedInvoice && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setSelectedInvoice(null);
+          }}
+          onSave={handlePayInvoice}
+          invoice={selectedInvoice}
+          paymentAccounts={accounts.filter(
+            acc => acc.type !== AccountType.CREDIT_CARD
+          )}
+        />
+      )}
+      <BudgetModal
+        isOpen={isBudgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        onSave={handleSaveBudget}
+        categories={categories.filter(c => c.type === CategoryType.EXPENSE)}
+      />
+      <RuleModal
+        isOpen={isRuleModalOpen}
+        onClose={() => setRuleModalOpen(false)}
+        onSave={handleSaveRule}
+      />
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        onSave={handleSaveCategory}
+      />
+    </div>
   );
 };
 
@@ -531,8 +911,9 @@ const App = () => {
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
-    if (error && error.code !== 'PGRST116') { // PGRST116: no rows found
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116: no rows found
       console.error('Error fetching profile:', error);
     } else if (data) {
       setProfile(data);
@@ -540,59 +921,104 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // This effect is the single source of truth for the session.
-    // The loading state is set to false immediately after the session is known,
-    // and the profile is fetched in the background without blocking the UI.
-    // This prevents the app from getting stuck on a loading screen if the
-    // profile fetch is slow or fails.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    let ignore = false;
+
+    const initAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+
+        if (ignore) return;
+
+        const currentSession = data?.session ?? null;
+        setSession(currentSession);
+
+        if (currentSession) {
+          await fetchProfile(currentSession.user);
+        } else {
+          setProfile(null);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initAuth();
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
         fetchProfile(session.user);
       } else {
         setProfile(null);
       }
-      setLoading(false);
+      // não mexe no loading aqui
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      ignore = true;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
-  
+
   const handleLogout = async () => {
-      await supabase.auth.signOut();
+    await supabase.auth.signOut();
   };
 
   const loadingSpinner = (
     <div className="flex justify-center items-center h-screen bg-[#0B0F1A]">
-        <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+      <svg
+        className="animate-spin h-10 w-10 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        ></circle>
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        ></path>
+      </svg>
     </div>
   );
 
   if (loading) {
-      return loadingSpinner;
+    return loadingSpinner;
   }
 
   return (
     <NotificationProvider>
-        <Suspense fallback={loadingSpinner}>
-            {!session ? (
-                <AuthPage />
-            ) : (
-                <AppContent 
-                    key={session.user.id} 
-                    session={session} 
-                    profile={profile} 
-                    refetchProfile={() => session.user ? fetchProfile(session.user) : Promise.resolve()}
-                    onLogout={handleLogout}
-                />
-            )}
-        </Suspense>
+      <Suspense fallback={loadingSpinner}>
+        {!session ? (
+          <AuthPage />
+        ) : (
+          <AppContent
+            key={session.user.id}
+            session={session}
+            profile={profile}
+            refetchProfile={() =>
+              session.user ? fetchProfile(session.user) : Promise.resolve()
+            }
+            onLogout={handleLogout}
+          />
+        )}
+      </Suspense>
     </NotificationProvider>
   );
 };
-
 
 export default App;
