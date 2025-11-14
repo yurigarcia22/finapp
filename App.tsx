@@ -540,15 +540,15 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // This effect hook now correctly uses onAuthStateChange as the single source
-    // of truth for the session. It sets up a listener that fires on initial load
-    // and any subsequent auth state changes (login/logout). The loading state is
-    // only set to false after this initial check is complete, preventing race
-    // conditions and the infinite loading screen issue.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // This effect is the single source of truth for the session.
+    // The loading state is set to false immediately after the session is known,
+    // and the profile is fetched in the background without blocking the UI.
+    // This prevents the app from getting stuck on a loading screen if the
+    // profile fetch is slow or fails.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        await fetchProfile(session.user);
+        fetchProfile(session.user);
       } else {
         setProfile(null);
       }
