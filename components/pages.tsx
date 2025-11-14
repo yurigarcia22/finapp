@@ -1,9 +1,13 @@
 
 import React, { useState, useMemo } from 'react';
+import { User } from '@supabase/supabase-js';
 import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule } from '../types';
 import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, UserIcon, TagIcon, ChevronDownIcon } from './icons';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
+import { useNotifications } from '../contexts/NotificationContext';
+import { supabase } from '../supabase';
+
 
 // ==================================================================================
 // COMPONENTES UTILITÁRIOS
@@ -619,13 +623,91 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, onAd
 // ==================================================================================
 // PÁGINA DE CONFIGURAÇÕES
 // ==================================================================================
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+    user: User;
+}
+export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
+    const { addNotification } = useNotifications();
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handlePasswordUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            addNotification({ title: 'Erro', message: 'As senhas não coincidem.', type: 'warning' });
+            return;
+        }
+        if (newPassword.length < 6) {
+            addNotification({ title: 'Erro', message: 'A nova senha deve ter pelo menos 6 caracteres.', type: 'warning' });
+            return;
+        }
+
+        setLoading(true);
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        setLoading(false);
+
+        if (error) {
+            addNotification({ title: 'Erro ao Atualizar', message: error.message, type: 'warning' });
+        } else {
+            addNotification({ title: 'Sucesso!', message: 'Sua senha foi alterada.', type: 'success' });
+            setNewPassword('');
+            setConfirmPassword('');
+        }
+    };
+    
     return (
         <PageWrapper title="Configurações">
-            <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                <h3 className="text-lg font-semibold">Configurações de Perfil</h3>
-                <p className="text-gray-400 mt-2">Altere suas informações pessoais, senha e preferências de notificação.</p>
-                {/* Futuros campos de formulário aqui */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Informações do Perfil</h3>
+                    <div className="space-y-4">
+                         <div>
+                            <label className="text-sm font-medium text-gray-400">Email</label>
+                            <p className="text-white mt-1 p-3 bg-[#1E293B] rounded-md">{user.email}</p>
+                        </div>
+                         <div>
+                            <label className="text-sm font-medium text-gray-400">Último Login</label>
+                            <p className="text-white mt-1 p-3 bg-[#1E293B] rounded-md">{new Date(user.last_sign_in_at || '').toLocaleString('pt-BR')}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Alterar Senha</h3>
+                     <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                        <div>
+                            <label htmlFor="new-password"className="block text-sm font-medium text-gray-400 mb-1">Nova Senha</label>
+                            <input
+                                type="password"
+                                id="new-password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="confirm-password"className="block text-sm font-medium text-gray-400 mb-1">Confirmar Nova Senha</label>
+                            <input
+                                type="password"
+                                id="confirm-password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                            />
+                        </div>
+                        <div className="pt-2 flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'Salvando...' : 'Salvar Nova Senha'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </PageWrapper>
     );
