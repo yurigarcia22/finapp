@@ -60,7 +60,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('user_id', user.id);
       if (categoriesError) throw new Error(`Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
       
-      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*, category:categories(*)').eq('user_id', user.id).order('date', { ascending: false });
+      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*, categories(*)').eq('user_id', user.id).order('date', { ascending: false });
       if (transactionsError) throw new Error(`Erro ao carregar Transações: ${transactionsError.message}. Verifique a relação com 'categories' e as permissões (RLS).`);
       
       const { data: invoicesData, error: invoicesError } = await supabase.from('credit_invoices').select('*').eq('user_id', user.id);
@@ -81,7 +81,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         amount: tx.amount,
         date: tx.date,
         type: tx.type,
-        category: tx.category as Category | null,
+        category: tx.categories as Category | null,
         accountId: tx.account_id,
         status: tx.status,
       })) || [];

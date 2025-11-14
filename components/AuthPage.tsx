@@ -21,7 +21,10 @@ export interface Testimonial {
 }
 
 // --- SUB-COMPONENTS ---
-const GlassInputWrapper = ({ children }: { children: React.ReactNode }) => (
+// FIX: Changed the component signature to use React.FC. This makes the `children` prop
+// optional by default in modern React types, resolving a TypeScript error where `children`
+// were incorrectly reported as missing, despite being provided in the JSX.
+const GlassInputWrapper: React.FC = ({ children }) => (
   <div className="rounded-2xl border border-border bg-foreground/5 backdrop-blur-sm transition-colors focus-within:border-violet-400/70 focus-within:bg-violet-500/10">
     {children}
   </div>
