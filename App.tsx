@@ -54,28 +54,23 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     if (!user) return;
     setLoading(true);
     try {
-      const [
-        { data: accountsData, error: accountsError },
-        { data: categoriesData, error: categoriesError },
-        { data: transactionsData, error: transactionsError },
-        { data: invoicesData, error: invoicesError },
-        { data: budgetsData, error: budgetsError },
-        { data: rulesData, error: rulesError },
-      ] = await Promise.all([
-        supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('categories').select('*').eq('user_id', user.id),
-        supabase.from('transactions').select('*, category:categories(*)').eq('user_id', user.id).order('date', { ascending: false }),
-        supabase.from('credit_invoices').select('*').eq('user_id', user.id),
-        supabase.from('budgets').select('*').eq('user_id', user.id),
-        supabase.from('rules').select('*').eq('user_id', user.id),
-      ]);
-
-      if (accountsError) throw accountsError;
-      if (categoriesError) throw categoriesError;
-      if (transactionsError) throw transactionsError;
-      if (invoicesError) throw invoicesError;
-      if (budgetsError) throw budgetsError;
-      if (rulesError) throw rulesError;
+      const { data: accountsData, error: accountsError } = await supabase.from('accounts').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      if (accountsError) throw new Error(`Erro ao carregar Contas: ${accountsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
+      
+      const { data: categoriesData, error: categoriesError } = await supabase.from('categories').select('*').eq('user_id', user.id);
+      if (categoriesError) throw new Error(`Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
+      
+      const { data: transactionsData, error: transactionsError } = await supabase.from('transactions').select('*, category:categories(*)').eq('user_id', user.id).order('date', { ascending: false });
+      if (transactionsError) throw new Error(`Erro ao carregar Transações: ${transactionsError.message}. Verifique a relação com 'categories' e as permissões (RLS).`);
+      
+      const { data: invoicesData, error: invoicesError } = await supabase.from('credit_invoices').select('*').eq('user_id', user.id);
+      if (invoicesError) throw new Error(`Erro ao carregar Faturas: ${invoicesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
+      
+      const { data: budgetsData, error: budgetsError } = await supabase.from('budgets').select('*').eq('user_id', user.id);
+      if (budgetsError) throw new Error(`Erro ao carregar Orçamentos: ${budgetsError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
+      
+      const { data: rulesData, error: rulesError } = await supabase.from('rules').select('*').eq('user_id', user.id);
+      if (rulesError) throw new Error(`Erro ao carregar Regras: ${rulesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`);
 
       setAccounts(accountsData || []);
       setCategories(categoriesData || []);
@@ -118,6 +113,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       setLoading(false);
     }
   }, [addNotification, user]);
+
 
   useEffect(() => {
     fetchData();

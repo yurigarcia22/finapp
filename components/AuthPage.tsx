@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
-import { Eye, EyeOff } from 'lucide-react';
+import { EyeIcon, EyeOffIcon } from './icons';
 
 // --- HELPER COMPONENTS (ICONS) ---
 const GoogleIcon = () => (
@@ -105,12 +105,27 @@ export const AuthPage: React.FC = () => {
                 
                 if (profileError) {
                     console.error("Profile creation error:", profileError);
-                    throw new Error("A conta foi criada, mas houve um erro ao salvar o perfil. Por favor, verifique as permissões da sua tabela 'profiles'.");
+                    // This custom error will be caught by the outer catch block
+                    throw new Error("Sua conta foi criada, mas não foi possível salvar seu nome. Verifique se a tabela 'profiles' e suas permissões (RLS) estão configuradas corretamente no Supabase.");
                 }
                 // onAuthStateChange will handle redirect automatically
             }
         } catch (err: any) {
-            setError(err.error_description || err.message);
+            console.error("Authentication Error:", err);
+            let message = "Ocorreu um erro. Tente novamente.";
+            if (err instanceof Error) {
+                message = err.message;
+            } else if (err.error_description) {
+                message = err.error_description;
+            }
+            
+            if (message.includes("User already registered")) {
+                message = "Este e-mail já está cadastrado. Tente fazer o login.";
+            } else if (message.includes("Invalid login credentials")) {
+                message = "E-mail ou senha incorretos.";
+            }
+    
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -171,7 +186,7 @@ export const AuthPage: React.FC = () => {
                   <div className="relative">
                     <input name="password" type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required placeholder="Digite sua senha" className="w-full bg-transparent text-sm p-4 pr-12 rounded-2xl focus:outline-none" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-3 flex items-center">
-                      {showPassword ? <EyeOff className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" /> : <Eye className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />}
+                      {showPassword ? <EyeOffIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" /> : <EyeIcon className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />}
                     </button>
                   </div>
                 </GlassInputWrapper>
