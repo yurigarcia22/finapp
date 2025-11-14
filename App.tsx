@@ -908,7 +908,8 @@ const App = () => {
   const fetchProfile = useCallback(async (user: User) => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name')
+      // FIX: Select all profile fields to match the 'Profile' type, which requires 'id'.
+      .select('*')
       .eq('id', user.id)
       .single();
 

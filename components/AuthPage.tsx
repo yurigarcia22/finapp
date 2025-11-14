@@ -46,7 +46,7 @@ const testimonials: Testimonial[] = [
         avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
         name: 'Alex Johnson',
         handle: '@alexj',
-        text: 'FinPilot transformou meu caos financeiro em clareza total. Indispensável!',
+        text: 'NG Fin transformou meu caos financeiro em clareza total. Indispensável!',
     },
     {
         avatarSrc: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100',
@@ -58,7 +58,7 @@ const testimonials: Testimonial[] = [
         avatarSrc: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
         name: 'Carlos Silva',
         handle: '@carlossilva',
-        text: 'Finalmente atingi minhas metas de poupança graças à visão geral que o FinPilot oferece.',
+        text: 'Finalmente atingi minhas metas de poupança graças à visão geral que o NG Fin oferece.',
     }
 ];
 
