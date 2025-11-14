@@ -1,16 +1,19 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { SearchIcon, ChevronDownIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { supabase } from '../supabase';
+import { Profile } from '../types';
 
 interface HeaderProps {
     user: User;
+    profile: Profile | null;
     setCurrentPage: (page: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, setCurrentPage }) => {
+export const Header: React.FC<HeaderProps> = ({ user, profile, setCurrentPage }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -28,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ user, setCurrentPage }) => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    const displayName = profile?.full_name || user.email;
 
     return (
         <header className="relative z-10 flex-shrink-0 flex h-16 bg-[#10192A] shadow-md">
@@ -68,10 +72,10 @@ export const Header: React.FC<HeaderProps> = ({ user, setCurrentPage }) => {
                                 <span className="sr-only">Abrir menu do usuário</span>
                                 <img
                                     className="h-8 w-8 rounded-full"
-                                    src={`https://ui-avatars.com/api/?name=${user.email}&background=6464FF&color=fff&bold=true`}
+                                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || '')}&background=6464FF&color=fff&bold=true`}
                                     alt="User profile"
                                 />
-                                <span className="hidden md:block ml-2 text-white text-sm font-medium">{user.email}</span>
+                                <span className="hidden md:block ml-2 text-white text-sm font-medium">{displayName}</span>
                                 <ChevronDownIcon className="hidden md:block ml-1 h-5 w-5 text-gray-400" />
                             </button>
                         </div>

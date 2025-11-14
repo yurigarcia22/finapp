@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
-import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule } from '../types';
+import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule, Profile } from '../types';
 import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, UserIcon, TagIcon, ChevronDownIcon } from './icons';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
@@ -625,12 +626,30 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, onAd
 // ==================================================================================
 interface SettingsPageProps {
     user: User;
+    profile: Profile | null;
+    onProfileUpdate: () => void;
 }
-export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ user, profile, onProfileUpdate }) => {
     const { addNotification } = useNotifications();
+    const [fullName, setFullName] = useState(profile?.full_name || '');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState({ profile: false, password: false });
+
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(prev => ({ ...prev, profile: true }));
+        
+        const { error } = await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id);
+        
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível atualizar o perfil.', type: 'warning' });
+        } else {
+            addNotification({ title: 'Sucesso', message: 'Perfil atualizado!', type: 'success' });
+            onProfileUpdate();
+        }
+        setLoading(prev => ({ ...prev, profile: false }));
+    };
 
     const handlePasswordUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -643,9 +662,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
             return;
         }
 
-        setLoading(true);
+        setLoading(prev => ({ ...prev, password: true }));
         const { error } = await supabase.auth.updateUser({ password: newPassword });
-        setLoading(false);
+        setLoading(prev => ({ ...prev, password: false }));
 
         if (error) {
             addNotification({ title: 'Erro ao Atualizar', message: error.message, type: 'warning' });
@@ -661,16 +680,31 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
                     <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Informações do Perfil</h3>
-                    <div className="space-y-4">
+                    <form onSubmit={handleProfileUpdate} className="space-y-4">
+                         <div>
+                            <label htmlFor="fullName" className="block text-sm font-medium text-gray-400 mb-1">Nome Completo</label>
+                            <input
+                                id="fullName"
+                                type="text"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                            />
+                        </div>
                          <div>
                             <label className="text-sm font-medium text-gray-400">Email</label>
-                            <p className="text-white mt-1 p-3 bg-[#1E293B] rounded-md">{user.email}</p>
+                            <p className="text-white mt-1 p-3 bg-[#192134] rounded-md text-gray-400">{user.email}</p>
                         </div>
-                         <div>
-                            <label className="text-sm font-medium text-gray-400">Último Login</label>
-                            <p className="text-white mt-1 p-3 bg-[#1E293B] rounded-md">{new Date(user.last_sign_in_at || '').toLocaleString('pt-BR')}</p>
+                         <div className="pt-2 flex justify-end">
+                            <button
+                                type="submit"
+                                disabled={loading.profile}
+                                className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            >
+                                {loading.profile ? 'Salvando...' : 'Salvar Alterações'}
+                            </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
                 <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
                     <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Alterar Senha</h3>
@@ -700,10 +734,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user }) => {
                         <div className="pt-2 flex justify-end">
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading.password}
                                 className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
                             >
-                                {loading ? 'Salvando...' : 'Salvar Nova Senha'}
+                                {loading.password ? 'Salvando...' : 'Salvar Nova Senha'}
                             </button>
                         </div>
                     </form>

@@ -15,15 +15,17 @@ import { BudgetModal } from './components/BudgetModal';
 import { RuleModal } from './components/RuleModal';
 import { CategoryModal } from './components/CategoryModal';
 import { TransactionsPage, BudgetsPage, CardsPage, AccountsPage, ReportsPage, RulesPage, SettingsPage, CategoriesPage } from './components/pages';
-import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, Budget, CreditInvoice, Rule } from './types';
+import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, Budget, CreditInvoice, Rule, Profile } from './types';
 import { supabase } from './supabase';
 import { AuthPage } from './components/AuthPage';
 
 interface AppContentProps {
   session: Session;
+  profile: Profile | null;
+  refetchProfile: () => void;
 }
 
-const AppContent: React.FC<AppContentProps> = ({ session }) => {
+const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfile }) => {
   const { user } = session;
   const { addNotification } = useNotifications();
   // ==================================================================================
@@ -434,7 +436,7 @@ const AppContent: React.FC<AppContentProps> = ({ session }) => {
       case 'Categorias':
         return <CategoriesPage categories={categories} onAddCategory={() => setCategoryModalOpen(true)} onDeleteCategory={handleDeleteCategory} />;
       case 'Configurações':
-        return <SettingsPage user={user} />;
+        return <SettingsPage user={user} profile={profile} onProfileUpdate={refetchProfile} />;
       default:
         return <Dashboard accounts={accounts} transactions={transactions} categories={categories} budgets={budgets} invoices={invoices} />;
     }
@@ -444,7 +446,7 @@ const AppContent: React.FC<AppContentProps> = ({ session }) => {
       <div className="flex h-screen bg-[#0B0F1A] text-[#E2E8F0]">
         <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header user={user} setCurrentPage={setCurrentPage} />
+          <Header user={user} profile={profile} setCurrentPage={setCurrentPage} />
           <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0B0F1A] p-6 lg:p-8">
             {loading ? (
                 <div className="flex justify-center items-center h-full">
@@ -520,23 +522,46 @@ const AppContent: React.FC<AppContentProps> = ({ session }) => {
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-      const getSession = async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          setSession(session);
-          setLoading(false);
-      };
-
-      getSession();
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setSession(session);
-      });
-
-      return () => subscription.unsubscribe();
+  const fetchProfile = useCallback(async (user: User) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116: no rows found
+      console.error('Error fetching profile:', error);
+    } else if (data) {
+      setProfile(data);
+    }
   }, []);
+
+  useEffect(() => {
+    const getSessionAndProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      if (session) {
+        await fetchProfile(session.user);
+      }
+      setLoading(false);
+    };
+
+    getSessionAndProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session) {
+        await fetchProfile(session.user);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchProfile]);
   
   const loadingSpinner = (
     <div className="flex justify-center items-center h-screen bg-[#0B0F1A]">
@@ -557,7 +582,12 @@ const App = () => {
             {!session ? (
                 <AuthPage />
             ) : (
-                <AppContent key={session.user.id} session={session} />
+                <AppContent 
+                    key={session.user.id} 
+                    session={session} 
+                    profile={profile} 
+                    refetchProfile={() => session.user ? fetchProfile(session.user) : Promise.resolve()}
+                />
             )}
         </Suspense>
     </NotificationProvider>

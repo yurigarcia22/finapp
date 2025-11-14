@@ -99,3 +99,9 @@ export interface MonthlySummaryData {
     receitas: number;
     despesas: number;
 }
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  updated_at?: string;
+}

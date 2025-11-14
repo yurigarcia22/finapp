@@ -67,42 +67,46 @@ export const AuthPage: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [heroImageSrc, setHeroImageSrc] = useState<string | null>(null);
-    const [isImageLoading, setIsImageLoading] = useState(true);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [imageLoading, setImageLoading] = useState(true);
 
     useEffect(() => {
         const generateImage = async () => {
             try {
-                setIsImageLoading(true);
+                setImageLoading(true);
                 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-                const prompt = "A dynamic and abstract 3D visualization representing financial growth and data streams, with a sleek, futuristic aesthetic. Use a palette of deep blues, purples, and vibrant teals, with glowing lines and particles to suggest movement and innovation.";
-
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image',
-                    contents: { parts: [{ text: prompt }] },
-                    config: {
-                        responseModalities: [Modality.IMAGE],
-                    },
+                  model: 'gemini-2.5-flash-image',
+                  contents: {
+                    parts: [
+                      {
+                        text: 'An abstract, futuristic, visually stunning image representing financial growth, data visualization, and technological innovation. Use a dark theme with vibrant, glowing accents of blue, purple, and green. The style should be sleek, modern, and professional, suitable for a financial technology application background.',
+                      },
+                    ],
+                  },
+                  config: {
+                      responseModalities: [Modality.IMAGE],
+                  },
                 });
-
                 for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        const base64ImageBytes: string = part.inlineData.data;
-                        const imageUrl = `data:image/png;base64,${base64ImageBytes}`;
-                        setHeroImageSrc(imageUrl);
-                        break;
-                    }
+                  if (part.inlineData) {
+                    const base64ImageBytes: string = part.inlineData.data;
+                    const url = `data:image/png;base64,${base64ImageBytes}`;
+                    setImageUrl(url);
+                    break; // Exit after finding the first image
+                  }
                 }
-            } catch (error) {
-                console.error("Error generating image:", error);
-                // Fallback to a default background color or image if generation fails
-                setHeroImageSrc(''); // Set to empty to hide loader
+            } catch (e) {
+                console.error("Failed to generate image", e);
+                // Fallback to static image if generation fails
+                setImageUrl('https://images.unsplash.com/photo-1634733600138-bf2b79a5dec7?q=80&w=2574&auto=format&fit=crop');
             } finally {
-                setIsImageLoading(false);
+                setImageLoading(false);
             }
         };
 
@@ -111,19 +115,39 @@ export const AuthPage: React.FC = () => {
 
     const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (!isLogin && !fullName) {
+            setError('Por favor, insira seu nome completo.');
+            return;
+        }
         setLoading(true);
         setError('');
         setMessage('');
 
         try {
-            const { error: authError } = isLogin
-                ? await supabase.auth.signInWithPassword({ email, password })
-                : await supabase.auth.signUp({ email, password });
+            if (isLogin) {
+                // Login
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) throw signInError;
+            } else {
+                // Sign up
+                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+                    email,
+                    password,
+                });
 
-            if (authError) throw authError;
+                if (signUpError) throw signUpError;
+                if (!signUpData.user) throw new Error("Cadastro falhou, usuário não retornado.");
 
-            if (!isLogin) {
-                setMessage('Cadastro realizado! Verifique seu e-mail para confirmar a conta.');
+                // Manually insert into profiles table to avoid trigger issues
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .insert({ id: signUpData.user.id, full_name: fullName });
+                
+                if (profileError) {
+                    console.error("Profile creation error:", profileError);
+                    throw new Error("A conta foi criada, mas houve um erro ao salvar o perfil. Por favor, verifique as permissões da sua tabela 'profiles'.");
+                }
+                // onAuthStateChange will handle redirect automatically
             }
         } catch (err: any) {
             setError(err.error_description || err.message);
@@ -139,6 +163,7 @@ export const AuthPage: React.FC = () => {
         setMessage('');
         setEmail('');
         setPassword('');
+        setFullName('');
     };
     
     const handleGoogleSignIn = () => {
@@ -164,14 +189,23 @@ export const AuthPage: React.FC = () => {
             </p>
 
             <form className="space-y-5" onSubmit={handleAuth}>
-              <div className="animate-element animate-delay-300">
+              {!isLogin && (
+                <div className="animate-element animate-delay-300">
+                    <label className="text-sm font-medium text-muted-foreground">Nome Completo</label>
+                    <GlassInputWrapper>
+                    <input name="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Digite seu nome completo" className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none" />
+                    </GlassInputWrapper>
+                </div>
+              )}
+
+              <div className="animate-element animate-delay-400">
                 <label className="text-sm font-medium text-muted-foreground">Endereço de Email</label>
                 <GlassInputWrapper>
                   <input name="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Digite seu e-mail" className="w-full bg-transparent text-sm p-4 rounded-2xl focus:outline-none" />
                 </GlassInputWrapper>
               </div>
 
-              <div className="animate-element animate-delay-400">
+              <div className="animate-element animate-delay-500">
                 <label className="text-sm font-medium text-muted-foreground">Senha</label>
                 <GlassInputWrapper>
                   <div className="relative">
@@ -183,7 +217,7 @@ export const AuthPage: React.FC = () => {
                 </GlassInputWrapper>
               </div>
 
-              <div className="animate-element animate-delay-500 flex items-center justify-between text-sm">
+              <div className="animate-element animate-delay-600 flex items-center justify-between text-sm">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input type="checkbox" name="rememberMe" className="custom-checkbox" />
                   <span className="text-foreground/90">Manter-me conectado</span>
@@ -194,22 +228,22 @@ export const AuthPage: React.FC = () => {
               {error && <p className="animate-element text-sm text-red-400 text-center">{error}</p>}
               {message && <p className="animate-element text-sm text-green-400 text-center">{message}</p>}
 
-              <button type="submit" disabled={loading} className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <button type="submit" disabled={loading} className="animate-element animate-delay-700 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {loading ? 'Carregando...' : (isLogin ? 'Entrar' : 'Criar Conta')}
               </button>
             </form>
 
-            <div className="animate-element animate-delay-700 relative flex items-center justify-center">
+            <div className="animate-element animate-delay-800 relative flex items-center justify-center">
               <span className="w-full border-t border-border"></span>
               <span className="px-4 text-sm text-muted-foreground bg-background absolute">Ou continue com</span>
             </div>
 
-            <button onClick={handleGoogleSignIn} className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 hover:bg-secondary transition-colors">
+            <button onClick={handleGoogleSignIn} className="animate-element animate-delay-900 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 hover:bg-secondary transition-colors">
                 <GoogleIcon />
                 Continuar com Google
             </button>
 
-            <p className="animate-element animate-delay-900 text-center text-sm text-muted-foreground">
+            <p className="animate-element animate-delay-1000 text-center text-sm text-muted-foreground">
               {isLogin ? 'Novo na plataforma?' : 'Já possui uma conta?'}{' '}
               <a href="#" onClick={toggleAuthMode} className="text-violet-400 hover:underline transition-colors">
                  {isLogin ? 'Criar Conta' : 'Fazer Login'}
@@ -221,20 +255,30 @@ export const AuthPage: React.FC = () => {
 
       {/* Right column: hero image + testimonials */}
       <section className="hidden md:block flex-1 relative p-4">
-        {isImageLoading ? (
-            <div className="absolute inset-4 rounded-3xl bg-secondary animate-pulse"></div>
-        ) : heroImageSrc ? (
-          <>
-            <div className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-cover bg-center" style={{ backgroundImage: `url(${heroImageSrc})` }}></div>
-            {testimonials.length > 0 && (
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 px-8 w-full justify-center">
-                <TestimonialCard testimonial={testimonials[0]} delay="animate-delay-1000" />
-                {testimonials[1] && <div className="hidden xl:flex"><TestimonialCard testimonial={testimonials[1]} delay="animate-delay-1200" /></div>}
-                {testimonials[2] && <div className="hidden 2xl:flex"><TestimonialCard testimonial={testimonials[2]} delay="animate-delay-1400" /></div>}
-              </div>
+        <div className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-secondary bg-cover bg-center transition-all duration-500">
+            {imageLoading ? (
+                <div className="w-full h-full flex items-center justify-center bg-secondary rounded-3xl">
+                    <div className="animate-pulse flex flex-col items-center gap-2 text-muted-foreground">
+                        <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 16a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM3.5 12.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm9 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM.5 8.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm15 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM3.5 3.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zm9 0a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5zM8 4.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 1 0v1a.5.5 0 0 1-.5.5z"/>
+                        </svg>
+                        <span className="text-sm">Gerando arte com IA...</span>
+                    </div>
+                </div>
+            ) : (
+                <div 
+                    className="w-full h-full rounded-3xl bg-cover bg-center"
+                    style={{ backgroundImage: `url('${imageUrl}')` }}
+                ></div>
             )}
-          </>
-        ) : null}
+        </div>
+        {testimonials.length > 0 && !imageLoading && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 px-8 w-full justify-center">
+            <TestimonialCard testimonial={testimonials[0]} delay="animate-delay-1000" />
+            {testimonials[1] && <div className="hidden xl:flex"><TestimonialCard testimonial={testimonials[1]} delay="animate-delay-1200" /></div>}
+            {testimonials[2] && <div className="hidden 2xl:flex"><TestimonialCard testimonial={testimonials[2]} delay="animate-delay-1400" /></div>}
+          </div>
+        )}
       </section>
     </div>
   );
