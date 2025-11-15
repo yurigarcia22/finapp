@@ -20,7 +20,8 @@ import {
   ReportsPage,
   RulesPage,
   SettingsPage,
-  CategoriesPage
+  CategoriesPage,
+  FixedExpensesPage,
 } from './components/pages';
 import {
   Account,
@@ -32,7 +33,9 @@ import {
   Budget,
   CreditInvoice,
   Rule,
-  Profile
+  Profile,
+  FixedExpense,
+  MonthlyFixedExpense
 } from './types';
 import { supabase } from './supabase';
 import { AuthPage } from './components/AuthPage';
@@ -59,6 +62,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const [invoices, setInvoices] = useState<CreditInvoice[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
+  const [monthlyFixedExpenses, setMonthlyFixedExpenses] = useState<MonthlyFixedExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
 
@@ -133,6 +138,25 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         throw new Error(
           `Erro ao carregar Regras: ${rulesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
         );
+      
+      const { data: fixedExpensesData, error: fixedExpensesError } = await supabase
+        .from('fixed_expenses')
+        .select('*')
+        .eq('user_id', user.id);
+       if (fixedExpensesError)
+        throw new Error(
+          `Erro ao carregar Despesas Fixas: ${fixedExpensesError.message}. Verifique se a tabela 'fixed_expenses' e as permissões (RLS) estão corretas.`
+        );
+        
+      const { data: monthlyFixedExpensesData, error: monthlyFixedExpensesError } = await supabase
+        .from('monthly_fixed_expenses')
+        .select('*')
+        .eq('user_id', user.id);
+      if (monthlyFixedExpensesError)
+        throw new Error(
+            `Erro ao carregar Despesas Fixas Mensais: ${monthlyFixedExpensesError.message}. Verifique se a tabela 'monthly_fixed_expenses' e as permissões (RLS) estão corretas.`
+        );
+
 
       setAccounts(accountsData || []);
       setCategories(categoriesData || []);
@@ -176,6 +200,22 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       setBudgets(mappedBudgets);
 
       setRules(rulesData || []);
+      
+      const mappedFixedExpenses =
+        fixedExpensesData?.map((fe: any) => ({
+          ...fe,
+          category: fe.category_id ? categoriesMap.get(fe.category_id) || null : null,
+        })) || [];
+      setFixedExpenses(mappedFixedExpenses);
+
+      const fixedExpensesMap = new Map((mappedFixedExpenses || []).map(fe => [fe.id, fe]));
+      const mappedMonthlyFixedExpenses =
+        monthlyFixedExpensesData?.map((mfe: any) => ({
+          ...mfe,
+          fixedExpense: fixedExpensesMap.get(mfe.fixed_expense_id)
+        })) || [];
+      setMonthlyFixedExpenses(mappedMonthlyFixedExpenses);
+
     } catch (error: any) {
       console.error('Error fetching data:', error);
       addNotification({
@@ -196,9 +236,10 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   // ==================================================================================
   // FUNÇÕES HANDLER PARA MODIFICAR O ESTADO
   // ==================================================================================
-  const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>) => {
+  const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>, options?: { showNotification?: boolean }) => {
     const { category, accountId, installments, ...rest } = newTransaction;
     const account = accounts.find(acc => acc.id === accountId);
+    let createdTransactionId: string | null = null;
 
     if (account?.type === AccountType.CREDIT_CARD && installments && installments > 1) {
         // Handle installment transaction with integer math to avoid floating point errors
@@ -240,7 +281,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         if (error) {
             addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação parcelada.', type: 'warning' });
             console.error(error);
-            return;
+            return null;
         }
 
         // Update current open invoice with the amount of the first installment
@@ -252,18 +293,20 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
 
     } else {
         // Handle single transaction
-        const { error } = await supabase.from('transactions').insert({
+        const { data, error } = await supabase.from('transactions').insert({
             ...rest,
             account_id: accountId,
             category_id: category?.id,
             user_id: user.id
-        });
+        }).select('id').single();
 
-        if (error) {
+        if (error || !data) {
             addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação.', type: 'warning' });
             console.error(error);
-            return;
+            return null;
         }
+        
+        createdTransactionId = data.id;
 
         if (account?.type === AccountType.CREDIT_CARD) {
             const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
@@ -277,9 +320,12 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         }
     }
 
-    addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
+    if(options?.showNotification !== false) {
+      addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
+    }
     await fetchData();
     setTransactionModalOpen(false);
+    return createdTransactionId;
 };
 
 
@@ -783,6 +829,17 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             onDeleteTransaction={handleDeleteTransaction}
           />
         );
+      case 'Fixas':
+        return (
+            <FixedExpensesPage 
+                fixedExpenses={fixedExpenses}
+                monthlyFixedExpenses={monthlyFixedExpenses}
+                categories={categories}
+                accounts={accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD)}
+                onSaveTransaction={handleSaveTransaction}
+                onDataNeedsRefresh={fetchData}
+            />
+        );
       case 'Orçamentos':
         return (
           <BudgetsPage
@@ -910,7 +967,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       <TransactionModal
         isOpen={isTransactionModalOpen}
         onClose={() => setTransactionModalOpen(false)}
-        onSave={handleSaveTransaction}
+        onSave={(tx) => handleSaveTransaction(tx)}
         accounts={accounts}
         categories={categories}
       />

@@ -109,3 +109,25 @@ export interface Profile {
   full_name: string | null;
   updated_at?: string;
 }
+
+export interface FixedExpense {
+  id: string;
+  name: string;
+  default_amount: number;
+  due_day: number;
+  category_id: string | null;
+  notes: string | null;
+  is_active: boolean;
+  category?: Category | null;
+}
+
+export interface MonthlyFixedExpense {
+  id: string;
+  fixed_expense_id: string;
+  month: string; // YYYY-MM
+  amount: number;
+  status: 'Pago' | 'Não pago';
+  due_date: string;
+  transaction_id: string | null;
+  fixedExpense?: FixedExpense;
+}

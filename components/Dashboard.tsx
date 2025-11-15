@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { KpiCard } from './KpiCard';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { KpiData, Transaction, Account, AccountType, MonthlySummaryData, Budget, Category, CreditInvoice, CategoryType } from '../types';
-import { MoreVerticalIcon, CreditCardIcon } from './icons';
+import { MoreVerticalIcon, CreditCardIcon, ChevronDownIcon } from './icons';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
 
 interface DashboardProps {
@@ -72,69 +72,127 @@ const UpcomingBillCard: React.FC<{ bill: {id: string; name: string; dueDate: str
     </div>
 );
 
+const periodOptions = [
+    { value: 'thisMonth', label: 'Este Mês' },
+    { value: 'today', label: 'Hoje' },
+    { value: 'last7days', label: 'Últimos 7 dias' },
+    { value: 'last30days', label: 'Últimos 30 dias' },
+    { value: 'thisYear', label: 'Este Ano' }
+];
+
+const PeriodFilter: React.FC<{ value: string; onChange: (value: string) => void; }> = ({ value, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedLabel = periodOptions.find(opt => opt.value === value)?.label;
+
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button onClick={() => setIsOpen(!isOpen)} className="flex items-center space-x-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                <span>{selectedLabel}</span>
+                <ChevronDownIcon className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-popover ring-1 ring-border ring-opacity-5 focus:outline-none animate-element z-20">
+                    <div className="py-1">
+                        {periodOptions.map(option => (
+                            <button
+                                key={option.value}
+                                onClick={() => {
+                                    onChange(option.value);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full text-left block px-4 py-2 text-sm ${value === option.value ? 'bg-accent text-accent-foreground' : 'text-popover-foreground hover:bg-accent'}`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, budgets, categories, invoices }) => {
+    const [period, setPeriod] = useState('thisMonth');
     
-    const { kpiData, currentMonthTransactions } = useMemo(() => {
+    const filteredTransactions = useMemo(() => {
         const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        
-        const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
-        const prevMonth = prevMonthDate.getMonth();
-        const prevYear = prevMonthDate.getFullYear();
-
-        const currentMonthTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+        let startDate = new Date();
+        const endDate = new Date(now);
+    
+        endDate.setHours(23, 59, 59, 999);
+    
+        switch (period) {
+            case 'today':
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'last7days':
+                startDate.setDate(now.getDate() - 6);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'last30days':
+                startDate.setDate(now.getDate() - 29);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'thisYear':
+                startDate = new Date(now.getFullYear(), 0, 1);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+            case 'thisMonth':
+            default:
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+        }
+    
+        const startStr = startDate.toISOString().split('T')[0];
+        const endStr = endDate.toISOString().split('T')[0];
+    
+        return transactions.filter(tx => {
+            const txDate = tx.date;
+            return txDate >= startStr && txDate <= endStr;
         });
+    
+    }, [transactions, period]);
 
-        const prevMonthTxs = transactions.filter(tx => {
-            const txDate = new Date(tx.date);
-            return txDate.getMonth() === prevMonth && txDate.getFullYear() === prevYear;
-        });
-
-        const calculateTotal = (txs: Transaction[], type: CategoryType) => txs.filter(tx => tx.type === type).reduce((sum, tx) => sum + tx.amount, 0);
-
-        const receitasDoMes = calculateTotal(currentMonthTxs, CategoryType.INCOME);
-        const despesasDoMes = calculateTotal(currentMonthTxs, CategoryType.EXPENSE);
-        const receitasMesAnterior = calculateTotal(prevMonthTxs, CategoryType.INCOME);
-        const despesasMesAnterior = calculateTotal(prevMonthTxs, CategoryType.EXPENSE);
-        
-        const poupanca = receitasDoMes - despesasDoMes;
+    const kpiData = useMemo(() => {
+        const receitas = filteredTransactions.filter(tx => tx.type === CategoryType.INCOME).reduce((sum, tx) => sum + tx.amount, 0);
+        const despesas = filteredTransactions.filter(tx => tx.type === CategoryType.EXPENSE).reduce((sum, tx) => sum + tx.amount, 0);
+        const poupanca = receitas - despesas;
         const balancoTotal = accounts
             .filter(acc => acc.type !== AccountType.CREDIT_CARD)
             .reduce((sum, acc) => sum + acc.balance, 0);
-
-        const calculateChange = (current: number, previous: number) => {
-            if (previous === 0) return current > 0 ? 100 : 0;
-            return ((current - previous) / previous) * 100;
+        
+        const periodLabels: { [key: string]: string } = {
+            thisMonth: 'Este Mês',
+            today: 'Hoje',
+            last7days: 'Últimos 7 dias',
+            last30days: 'Últimos 30 dias',
+            thisYear: 'Este Ano'
         };
+        const titleSuffix = periodLabels[period as keyof typeof periodLabels] || 'Este Mês';
         
         const data: KpiData[] = [
-            {
-                title: 'Receitas do Mês',
-                value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receitasDoMes),
-                change: calculateChange(receitasDoMes, receitasMesAnterior),
-                changeType: receitasDoMes >= receitasMesAnterior ? 'increase' : 'decrease',
-            },
-            {
-                title: 'Despesas do Mês',
-                value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(despesasDoMes),
-                change: calculateChange(despesasDoMes, despesasMesAnterior),
-                changeType: despesasDoMes >= despesasMesAnterior ? 'increase' : 'decrease',
-            },
-            {
-                title: 'Poupança',
-                value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(poupanca),
-            },
-            {
-                title: 'Balanço Total',
-                value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balancoTotal),
-            },
+            { title: `Receitas (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receitas) },
+            { title: `Despesas (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(despesas) },
+            { title: `Poupança (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(poupanca) },
+            { title: 'Balanço Total', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balancoTotal) },
         ];
-        return { kpiData: data, currentMonthTransactions: currentMonthTxs };
-    }, [transactions, accounts]);
+        return data;
+    }, [filteredTransactions, accounts, period]);
 
     const regularAccounts = useMemo(() => accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD), [accounts]);
     const creditCardAccounts = useMemo(() => accounts.filter(acc => acc.type === AccountType.CREDIT_CARD), [accounts]);
@@ -167,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
     const budgetDetails = useMemo(() => {
         return budgets.map(budget => {
             const category = categories.find(c => c.id === budget.categoryId);
-            const spent = currentMonthTransactions
+            const spent = filteredTransactions
                 .filter(tx => tx.category?.id === budget.categoryId && tx.type === CategoryType.EXPENSE)
                 .reduce((sum, tx) => sum + tx.amount, 0);
             
@@ -178,7 +236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
                 color: category?.color || '#FFFFFF',
             };
         });
-    }, [budgets, categories, currentMonthTransactions]);
+    }, [budgets, categories, filteredTransactions]);
 
     const upcomingBills = useMemo(() => {
         return invoices
@@ -198,7 +256,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
 
     return (
         <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+                <PeriodFilter value={period} onChange={setPeriod} />
+            </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {kpiData.map((item) => <KpiCard key={item.title} item={item} />)}
@@ -212,7 +273,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
                     </div>
                     <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                         <h2 className="text-lg font-semibold text-card-foreground mb-4">Despesas por Categoria</h2>
-                        <CategoryPieChart data={transactions} />
+                        <CategoryPieChart data={filteredTransactions} />
                     </div>
 
                 </div>

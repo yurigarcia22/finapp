@@ -9,7 +9,8 @@ import {
   SettingsIcon,
   WalletIcon,
   TagIcon,
-  LogOutIcon
+  LogOutIcon,
+  ClipboardListIcon
 } from './icons';
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navigation = [
     { name: 'Dashboard', icon: HomeIcon },
     { name: 'Transações', icon: SwapIcon },
+    { name: 'Fixas', icon: ClipboardListIcon },
     { name: 'Orçamentos', icon: TargetIcon },
     { name: 'Cartões', icon: CreditCardIcon },
     { name: 'Contas', icon: WalletIcon },

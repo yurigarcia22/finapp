@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
-import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule, Profile } from '../types';
-import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, TagIcon, ChevronDownIcon, SunIcon, MoonIcon } from './icons';
+import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule, Profile, FixedExpense, MonthlyFixedExpense } from '../types';
+import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, TagIcon, ChevronDownIcon, SunIcon, MoonIcon, MoreVerticalIcon, ClipboardListIcon, XIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -786,6 +786,563 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, profile, onPro
                     </form>
                 </div>
             </div>
+        </PageWrapper>
+    );
+};
+
+// ==================================================================================
+// PÁGINA DE DESPESAS FIXAS
+// ==================================================================================
+interface FixedExpensesPageProps { 
+    fixedExpenses: FixedExpense[];
+    monthlyFixedExpenses: MonthlyFixedExpense[];
+    categories: Category[];
+    accounts: Account[];
+    onSaveTransaction: (
+        transaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>,
+        options?: { showNotification?: boolean }
+    ) => Promise<string | null>;
+    onDataNeedsRefresh: () => void;
+}
+
+const FixedExpenseModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => void;
+    expenseToEdit: FixedExpense | null;
+    categories: Category[];
+}> = ({ isOpen, onClose, onSave, expenseToEdit, categories }) => {
+    const [name, setName] = useState('');
+    const [amount, setAmount] = useState('');
+    const [dueDay, setDueDay] = useState('');
+    const [categoryId, setCategoryId] = useState('');
+    const [notes, setNotes] = useState('');
+    const isEditing = !!expenseToEdit;
+
+    useEffect(() => {
+        if (isOpen) {
+            if (isEditing && expenseToEdit) {
+                setName(expenseToEdit.name);
+                setAmount(String(expenseToEdit.default_amount));
+                setDueDay(String(expenseToEdit.due_day));
+                setCategoryId(expenseToEdit.category_id || '');
+                setNotes(expenseToEdit.notes || '');
+            } else {
+                setName('');
+                setAmount('');
+                setDueDay('');
+                setCategoryId('');
+                setNotes('');
+            }
+        }
+    }, [isOpen, expenseToEdit, isEditing]);
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!categoryId) {
+            alert('É obrigatório selecionar uma categoria.');
+            return;
+        }
+        onSave({ 
+            name, 
+            default_amount: parseFloat(amount), 
+            due_day: parseInt(dueDay, 10), 
+            category_id: categoryId, 
+            notes: notes || null 
+        });
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md bg-card rounded-xl shadow-2xl text-card-foreground flex flex-col max-h-[90vh] animate-element"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-center p-6 border-b border-border">
+                    <h2 className="text-2xl font-bold">
+                        {isEditing ? 'Editar Despesa Fixa' : 'Nova Despesa Fixa'}
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-muted-foreground hover:text-foreground"
+                    >
+                        <XIcon className="h-6 w-6" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4 overflow-y-auto">
+                    <form
+                        id="fixed-expense-form"
+                        onSubmit={handleSubmit}
+                        className="space-y-4"
+                    >
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="Nome (ex: Aluguel)"
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
+                        />
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                            placeholder="Valor Padrão"
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
+                        />
+                        <input
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={dueDay}
+                            onChange={e => setDueDay(e.target.value)}
+                            placeholder="Dia do Vencimento"
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
+                        />
+                        <select
+                            value={categoryId}
+                            onChange={e => setCategoryId(e.target.value)}
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
+                        >
+                            <option value="" disabled>
+                                Selecione uma categoria
+                            </option>
+                            {categories
+                                .filter(c => c.type === 'expense')
+                                .map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                        </select>
+                        <textarea
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            placeholder="Observações (opcional)"
+                            className="w-full bg-secondary border border-border rounded-md p-3 h-24 text-foreground placeholder:text-muted-foreground resize-none"
+                        />
+                    </form>
+                </div>
+
+                <div className="flex justify-end space-x-3 p-6 border-t border-border">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-accent transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        form="fixed-expense-form"
+                        className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-colors"
+                    >
+                        Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PayFixedExpenseModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (accountId: string, amount: number, date: string) => void;
+    expense: MonthlyFixedExpense;
+    accounts: Account[];
+}> = ({ isOpen, onClose, onConfirm, expense, accounts }) => {
+    const [accountId, setAccountId] = useState(accounts[0]?.id || '');
+    const [amount, setAmount] = useState(String(expense.amount));
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+    useEffect(() => {
+        setAmount(String(expense.amount));
+    }, [expense]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onConfirm(accountId, parseFloat(amount), date);
+        onClose();
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md bg-card rounded-xl shadow-2xl text-card-foreground flex flex-col max-h-[90vh] animate-element"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex justify-between items-center p-6 border-b border-border">
+                    <h2 className="text-2xl font-bold">Confirmar Pagamento</h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="text-muted-foreground hover:text-foreground"
+                    >
+                        <XIcon className="h-6 w-6" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4 overflow-y-auto">
+                    <div className="mb-4 p-4 bg-secondary rounded-lg">
+                        <p className="text-muted-foreground">
+                            {expense.fixedExpense?.name}
+                        </p>
+                        <p className="text-2xl font-bold text-yellow-500">
+                            {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                            }).format(parseFloat(amount))}
+                        </p>
+                    </div>
+
+                    <form
+                        id="pay-expense-form"
+                        onSubmit={handleSubmit}
+                        className="space-y-4"
+                    >
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
+                        />
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={e => setDate(e.target.value)}
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
+                        />
+                        <select
+                            value={accountId}
+                            onChange={e => setAccountId(e.target.value)}
+                            required
+                            className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
+                        >
+                            {accounts.map(acc => (
+                                <option key={acc.id} value={acc.id}>
+                                    {acc.name}
+                                </option>
+                            ))}
+                        </select>
+                    </form>
+                </div>
+
+                <div className="flex justify-end space-x-3 p-6 border-t border-border">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-6 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-accent transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        form="pay-expense-form"
+                        className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-colors"
+                    >
+                        Pagar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
+    fixedExpenses,
+    monthlyFixedExpenses,
+    categories,
+    accounts,
+    onSaveTransaction,
+    onDataNeedsRefresh,
+}) => {
+    const { addNotification } = useNotifications();
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [isAddModalOpen, setAddModalOpen] = useState(false);
+    const [isPayModalOpen, setPayModalOpen] = useState(false);
+    const [selectedExpense, setSelectedExpense] =
+        useState<MonthlyFixedExpense | null>(null);
+
+    const currentMonthStr = useMemo(
+        () =>
+            `${currentDate.getFullYear()}-${String(
+                currentDate.getMonth() + 1
+            ).padStart(2, '0')}`,
+        [currentDate]
+    );
+
+    const generateMonthlyExpenses = useCallback(
+        async (month: string) => {
+            const activeFixedExpenses = fixedExpenses.filter(fe => fe.is_active);
+            const existingMonthlyExpensesForMonth = monthlyFixedExpenses.filter(
+                mfe => mfe.month === month
+            );
+
+            const expensesToCreate = activeFixedExpenses.filter(
+                fe =>
+                    !existingMonthlyExpensesForMonth.some(
+                        mfe => mfe.fixed_expense_id === fe.id
+                    )
+            );
+
+            if (expensesToCreate.length > 0) {
+                const newMonthlyEntries = expensesToCreate.map(fe => {
+                    const [year, monthNum] = month.split('-').map(Number);
+                    const dueDate = new Date(year, monthNum - 1, fe.due_day);
+                    return {
+                        fixed_expense_id: fe.id,
+                        month: month,
+                        amount: fe.default_amount,
+                        status: 'Não pago' as const,
+                        due_date: dueDate.toISOString().split('T')[0],
+                    };
+                });
+                const { error } = await supabase
+                    .from('monthly_fixed_expenses')
+                    .insert(newMonthlyEntries);
+                if (error) {
+                    addNotification({
+                        title: 'Erro',
+                        message: 'Falha ao gerar despesas fixas para o mês.',
+                        type: 'warning',
+                    });
+                } else {
+                    addNotification({
+                        title: 'Sucesso',
+                        message: `Geradas ${newMonthlyEntries.length} despesas para o mês.`,
+                        type: 'success',
+                    });
+                    onDataNeedsRefresh();
+                }
+            }
+        },
+        [fixedExpenses, monthlyFixedExpenses, addNotification, onDataNeedsRefresh]
+    );
+
+    useEffect(() => {
+        generateMonthlyExpenses(currentMonthStr);
+    }, [currentMonthStr, generateMonthlyExpenses]);
+
+    const expensesForCurrentMonth = useMemo(() => {
+        return monthlyFixedExpenses
+            .filter(mfe => mfe.month === currentMonthStr)
+            .sort(
+                (a, b) =>
+                    new Date(a.due_date).getDate() -
+                    new Date(b.due_date).getDate()
+            );
+    }, [monthlyFixedExpenses, currentMonthStr]);
+
+    const handleOpenPayModal = (expense: MonthlyFixedExpense) => {
+        setSelectedExpense(expense);
+        setPayModalOpen(true);
+    };
+
+    const handleMarkAsPaid = async (
+        accountId: string,
+        amount: number,
+        date: string
+    ) => {
+        if (!selectedExpense) return;
+
+        const transactionId = await onSaveTransaction(
+            {
+                description: `Pagamento Fixo: ${selectedExpense.fixedExpense?.name}`,
+                amount: amount,
+                date: date,
+                type: CategoryType.EXPENSE,
+                category: selectedExpense.fixedExpense?.category || null,
+                accountId: accountId,
+                status: TransactionStatus.CLEARED,
+            },
+            { showNotification: false }
+        );
+
+        if (transactionId) {
+            const { error } = await supabase
+                .from('monthly_fixed_expenses')
+                .update({
+                    status: 'Pago',
+                    amount: amount,
+                    transaction_id: transactionId,
+                })
+                .eq('id', selectedExpense.id);
+
+            if (error) {
+                addNotification({
+                    title: 'Erro',
+                    message: 'Falha ao atualizar status da despesa.',
+                    type: 'warning',
+                });
+            } else {
+                addNotification({
+                    title: 'Sucesso',
+                    message: 'Despesa marcada como paga!',
+                    type: 'success',
+                });
+                onDataNeedsRefresh();
+            }
+        } else {
+            addNotification({
+                title: 'Erro',
+                message: 'Falha ao criar a transação de pagamento.',
+                type: 'warning',
+            });
+        }
+    };
+    
+    const handleSaveNewFixedExpense = async (
+        expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>
+    ) => {
+        const { error } = await supabase
+            .from('fixed_expenses')
+            .insert({ ...expense, is_active: true });
+        if (error) {
+            addNotification({
+                title: 'Erro',
+                message: 'Não foi possível salvar a despesa.',
+                type: 'warning',
+            });
+        } else {
+            addNotification({
+                title: 'Sucesso',
+                message: 'Despesa fixa criada!',
+                type: 'success',
+            });
+            onDataNeedsRefresh();
+        }
+    };
+    
+    const changeMonth = (offset: number) => {
+        setCurrentDate(prevDate => {
+            const newDate = new Date(prevDate);
+            newDate.setMonth(newDate.getMonth() + offset);
+            return newDate;
+        });
+    };
+
+    return (
+        <PageWrapper title="Despesas Fixas">
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => changeMonth(-1)}
+                        className="p-2 rounded-full hover:bg-secondary transition-colors"
+                        aria-label="Mês anterior"
+                    >
+                        <ChevronLeftIcon className="h-6 w-6" />
+                    </button>
+                    <h2 className="text-xl font-semibold text-foreground text-center w-48">
+                        {currentDate
+                            .toLocaleString('pt-BR', {
+                                month: 'long',
+                                year: 'numeric',
+                            })
+                            .replace(/^\w/, c => c.toUpperCase())}
+                    </h2>
+                    <button
+                        onClick={() => changeMonth(1)}
+                        className="p-2 rounded-full hover:bg-secondary transition-colors"
+                        aria-label="Próximo mês"
+                    >
+                        <ChevronRightIcon className="h-6 w-6" />
+                    </button>
+                </div>
+                <ActionButton
+                    icon={PlusCircleIcon}
+                    onClick={() => setAddModalOpen(true)}
+                    variant="primary"
+                >
+                    Adicionar Despesa
+                </ActionButton>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {expensesForCurrentMonth.map(item => (
+                    <div
+                        key={item.id}
+                        className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-between transition-all duration-300 hover:shadow-md"
+                    >
+                        <div>
+                            <div className="flex justify-between items-start mb-3">
+                                <h3 className="text-lg font-bold text-foreground">
+                                    {item.fixedExpense?.name}
+                                </h3>
+                                <span
+                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                        item.status === 'Pago'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-yellow-100 text-yellow-700'
+                                    }`}
+                                >
+                                    {item.status}
+                                </span>
+                            </div>
+                            <p className="text-3xl font-bold text-foreground mb-1">
+                                {new Intl.NumberFormat('pt-BR', {
+                                    style: 'currency',
+                                    currency: 'BRL',
+                                }).format(item.amount)}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                Vence dia{' '}
+                                {new Date(item.due_date).getUTCDate()}
+                            </p>
+                        </div>
+                        <div className="mt-4 flex justify-end space-x-2">
+                            <button className="text-sm font-medium text-muted-foreground hover:text-foreground">
+                                Editar
+                            </button>
+                            {item.status === 'Não pago' && (
+                                <button
+                                    onClick={() => handleOpenPayModal(item)}
+                                    className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                                >
+                                    Marcar como Paga
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            
+            <FixedExpenseModal 
+                isOpen={isAddModalOpen}
+                onClose={() => setAddModalOpen(false)}
+                onSave={handleSaveNewFixedExpense}
+                expenseToEdit={null}
+                categories={categories}
+            />
+
+            {selectedExpense && (
+                <PayFixedExpenseModal
+                    isOpen={isPayModalOpen}
+                    onClose={() => setPayModalOpen(false)}
+                    onConfirm={handleMarkAsPaid}
+                    expense={selectedExpense}
+                    accounts={accounts}
+                />
+            )}
         </PageWrapper>
     );
 };
