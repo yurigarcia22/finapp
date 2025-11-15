@@ -13,11 +13,24 @@ interface DashboardProps {
     invoices: CreditInvoice[];
 }
 
+const translateAccountType = (type: AccountType): string => {
+    switch (type) {
+        case AccountType.CHECKING: return 'Conta Corrente';
+        case AccountType.SAVINGS: return 'Poupança';
+        case AccountType.WALLET: return 'Carteira';
+        case AccountType.INVESTMENT: return 'Investimento';
+        case AccountType.CREDIT_CARD: return 'Cartão de Crédito';
+        case AccountType.LOAN: return 'Empréstimo';
+        // FIX: Cast `type` to string to avoid TypeScript error with exhaustive switch.
+        default: return (type as string).replace('_', ' ');
+    }
+};
+
 const AccountCard: React.FC<{ account: Account }> = ({ account }) => (
     <div className="bg-secondary p-4 rounded-lg flex items-center justify-between">
         <div>
             <p className="text-secondary-foreground font-semibold">{account.name}</p>
-            <p className="text-sm text-muted-foreground capitalize">{account.type.replace('_', ' ')}</p>
+            <p className="text-sm text-muted-foreground">{translateAccountType(account.type)}</p>
         </div>
         <p className={`font-bold text-lg ${account.balance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.balance)}
@@ -123,6 +136,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
         return { kpiData: data, currentMonthTransactions: currentMonthTxs };
     }, [transactions, accounts]);
 
+    const regularAccounts = useMemo(() => accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD), [accounts]);
+    const creditCardAccounts = useMemo(() => accounts.filter(acc => acc.type === AccountType.CREDIT_CARD), [accounts]);
+
     const monthlySummaryData = useMemo(() => {
         const data: MonthlySummaryData[] = [];
         const now = new Date();
@@ -208,9 +224,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
                             <button className="text-muted-foreground hover:text-foreground"><MoreVerticalIcon className="h-5 w-5"/></button>
                         </div>
                         <div className="space-y-3">
-                            {accounts.slice(0, 5).map(acc => <AccountCard key={acc.id} account={acc} />)}
+                            {regularAccounts.slice(0, 5).map(acc => <AccountCard key={acc.id} account={acc} />)}
                         </div>
                     </div>
+
+                    {creditCardAccounts.length > 0 && (
+                        <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-lg font-semibold text-card-foreground">Cartões de Crédito</h2>
+                                <button className="text-muted-foreground hover:text-foreground"><MoreVerticalIcon className="h-5 w-5"/></button>
+                            </div>
+                            <div className="space-y-3">
+                                {creditCardAccounts.map(card => {
+                                    const openInvoice = invoices.find(inv => inv.cardId === card.id && inv.status === 'Aberta');
+                                    const nextInvoice = invoices
+                                        .filter(inv => inv.cardId === card.id && (inv.status === 'Aberta' || inv.status === 'Fechada'))
+                                        .sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+
+                                    const dueDateText = nextInvoice
+                                        ? `Vence em ${new Date(nextInvoice.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: 'numeric', month: 'short' })}`
+                                        : `Vencimento dia ${card.due_day}`;
+
+                                    return (
+                                        <div key={card.id} className="bg-secondary p-4 rounded-lg flex items-center justify-between">
+                                            <div>
+                                                <p className="text-secondary-foreground font-semibold">{card.name}</p>
+                                                <p className="text-sm text-muted-foreground">{dueDateText}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-muted-foreground">Fatura Aberta</p>
+                                                <p className="font-bold text-lg text-yellow-500">
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(openInvoice?.amount || 0)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                         <h2 className="text-lg font-semibold text-card-foreground mb-4">Orçamentos</h2>

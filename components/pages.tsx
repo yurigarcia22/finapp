@@ -8,6 +8,19 @@ import { useNotifications } from '../contexts/NotificationContext';
 import { supabase } from '../supabase';
 
 
+const translateAccountType = (type: AccountType): string => {
+    switch (type) {
+        case AccountType.CHECKING: return 'Conta Corrente';
+        case AccountType.SAVINGS: return 'Poupança';
+        case AccountType.WALLET: return 'Carteira';
+        case AccountType.INVESTMENT: return 'Investimento';
+        case AccountType.CREDIT_CARD: return 'Cartão de Crédito';
+        case AccountType.LOAN: return 'Empréstimo';
+        // FIX: Cast `type` to string to avoid TypeScript error with exhaustive switch.
+        default: return (type as string).replace('_', ' ');
+    }
+};
+
 // ==================================================================================
 // COMPONENTES UTILITÁRIOS
 // ==================================================================================
@@ -260,7 +273,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({ accounts, onAddAccou
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-lg font-semibold text-foreground">{account.name}</p>
-                                <p className="text-sm text-muted-foreground capitalize">{account.type.replace('_', ' ')}</p>
+                                <p className="text-sm text-muted-foreground">{translateAccountType(account.type)}</p>
                             </div>
                             <div className="p-2 bg-secondary rounded-lg">{accountIcons[account.type]}</div>
                         </div>
