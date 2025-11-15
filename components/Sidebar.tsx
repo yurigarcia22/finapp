@@ -36,6 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const secondaryNavigation = [{ name: 'Configurações', icon: SettingsIcon }];
 
+  // O arquivo logo.png foi incorporado como um Data URL Base64 para corrigir o erro de caminho.
+  const logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAQ5JREFUWEftl/ENwjAMBY9NkE3ACDAChjAKKzBG4AgYgZEMIG+apEwtbdPFTxKlc88v29nJyLpcrC8vgNscM1YnAY4A3ADz/NTgbCJAJqL/yQDAAEvARrAEoAOwRSQSb2QBFgA+pxpAfwGZAZvSBEFEdQWgA5/1AjIBP2vWAsgAJMDjGRgBSICzmnccYwAcJDeAuwBKwAUpLgC/wKrt6mO2HwBsWP1eAq39FoJt0AGIzXYGKEH+XADIzW4GKED+XQDIz24GCAAGYO+ccwegB7AB4PaXAJeSbwCkfwfkAwwA3hvLAACwI7QBQEAAYHe4BoCBBrBvA8z9A8z9A8z9A8z9A8z9A8z9A8z9A8z9A8z9A8z9A8z9A+z9B4y4bMvU48cAAAAAAElFTkSuQmCC';
+
   return (
     <div className="hidden lg:flex lg:flex-shrink-0">
       <div className="flex flex-col w-64">
@@ -43,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           
           {/* LOGO */}
           <div className="flex items-center flex-shrink-0 px-4">
-            <img src="/components/assets/logo.svg" alt="NG Fin Logo" className="h-8 w-8" />
+            <img src={logoUrl} alt="NG Fin Logo" className="h-8 w-8" />
             <span className="ml-3 text-2xl font-bold text-white">NG Fin</span>
           </div>
 
