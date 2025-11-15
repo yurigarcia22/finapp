@@ -201,23 +201,32 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     const account = accounts.find(acc => acc.id === accountId);
 
     if (account?.type === AccountType.CREDIT_CARD && installments && installments > 1) {
-        // Handle installment transaction
+        // Handle installment transaction with integer math to avoid floating point errors
         const transactionsToInsert = [];
         const parentId = crypto.randomUUID();
-        const installmentAmount = newTransaction.amount / installments;
+        
+        const totalAmountInCents = Math.round(newTransaction.amount * 100);
+        const baseInstallmentAmountInCents = Math.floor(totalAmountInCents / installments);
+        const remainderInCents = totalAmountInCents % installments;
+        
         const txDate = new Date(newTransaction.date + 'T12:00:00Z');
 
         for (let i = 1; i <= installments; i++) {
             const installmentDate = new Date(txDate);
             installmentDate.setMonth(txDate.getMonth() + i - 1);
             
+            let currentInstallmentAmountInCents = baseInstallmentAmountInCents;
+            if (i === 1) {
+                currentInstallmentAmountInCents += remainderInCents; // Add remainder to the first installment
+            }
+
             transactionsToInsert.push({
                 ...rest,
                 account_id: accountId,
                 category_id: category?.id,
                 user_id: user.id,
                 description: `${newTransaction.description} (${i}/${installments})`,
-                amount: installmentAmount,
+                amount: currentInstallmentAmountInCents / 100,
                 date: installmentDate.toISOString().split('T')[0],
                 status: TransactionStatus.PENDING,
                 parent_transaction_id: parentId,
@@ -235,9 +244,10 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         }
 
         // Update current open invoice with the amount of the first installment
+        const firstInstallmentAmount = (baseInstallmentAmountInCents + remainderInCents) / 100;
         const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
         if (openInvoice) {
-            await supabase.from('credit_invoices').update({ amount: openInvoice.amount + installmentAmount }).eq('id', openInvoice.id);
+            await supabase.from('credit_invoices').update({ amount: openInvoice.amount + firstInstallmentAmount }).eq('id', openInvoice.id);
         }
 
     } else {
@@ -281,9 +291,14 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       .single();
 
     if (error) {
+      let userMessage = `Não foi possível criar a conta. Erro: ${error.message}`;
+      if (error.message.includes('column "due_day" of relation "accounts" does not exist')) {
+          userMessage = 'Falha ao criar: A coluna "due_day" não existe na sua tabela "accounts". Por favor, adicione uma coluna do tipo "number" ou "int2" para armazenar o dia do vencimento e tente novamente.';
+      }
+
       addNotification({
-        title: 'Erro',
-        message: 'Não foi possível criar a conta.',
+        title: 'Erro de Banco de Dados',
+        message: userMessage,
         type: 'warning'
       });
       console.error(error);
@@ -307,7 +322,21 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         due_date: dueDate.toISOString().split('T')[0],
         user_id: user.id
       };
-      await supabase.from('credit_invoices').insert(newInvoice);
+
+      const { error: invoiceError } = await supabase.from('credit_invoices').insert(newInvoice);
+
+      if (invoiceError) {
+        // Rollback: delete the account that was just created to avoid inconsistent state.
+        await supabase.from('accounts').delete().eq('id', data.id);
+        
+        addNotification({ 
+            title: 'Erro de Sincronização', 
+            message: 'A conta do cartão foi criada, mas a fatura inicial falhou. A criação foi revertida. Verifique a configuração da sua tabela `credit_invoices` (ex: RLS).', 
+            type: 'warning' 
+        });
+        console.error("Invoice creation error:", invoiceError);
+        return;
+      }
     }
 
     addNotification({
@@ -332,9 +361,13 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       .eq('user_id', user.id);
 
     if (error) {
+      let userMessage = `Não foi possível atualizar a conta. Erro: ${error.message}`;
+      if (error.message.includes('column "due_day" of relation "accounts" does not exist')) {
+          userMessage = 'Falha ao atualizar: A coluna "due_day" não existe na sua tabela "accounts". Por favor, adicione uma coluna do tipo "number" ou "int2" para armazenar o dia do vencimento.';
+      }
       addNotification({
-        title: 'Erro',
-        message: 'Não foi possível atualizar a conta.',
+        title: 'Erro de Banco de Dados',
+        message: userMessage,
         type: 'warning'
       });
       console.error(error);
@@ -451,7 +484,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       return;
     }
 
-    const paymentTransaction: Omit<Transaction, 'id'> = {
+    const paymentTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'> = {
       description: `Pagamento Fatura ${
         invoices.find(i => i.id === invoiceId)?.month
       }`,
