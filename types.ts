@@ -27,6 +27,7 @@ export interface Account {
   limit?: number;
   institution?: string;
   currency: string;
+  due_day?: number;
 }
 
 export interface Category {
@@ -46,6 +47,9 @@ export interface Transaction {
   category: Category | null;
   accountId: string;
   status: TransactionStatus;
+  installments?: number;
+  current_installment?: number;
+  parent_transaction_id?: string | null;
 }
 
 export interface CreditInvoice {

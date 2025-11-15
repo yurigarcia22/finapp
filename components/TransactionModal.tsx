@@ -5,7 +5,7 @@ import { Transaction, Account, Category, CategoryType, TransactionStatus, Accoun
 interface TransactionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (transaction: Omit<Transaction, 'id'>) => void;
+    onSave: (transaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>) => void;
     accounts: Account[];
     categories: Category[];
 }
@@ -17,6 +17,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
     const [categoryId, setCategoryId] = useState('');
     const [accountId, setAccountId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [isInstallment, setIsInstallment] = useState(false);
+    const [installments, setInstallments] = useState('2');
+
+    const selectedAccount = useMemo(() => accounts.find(acc => acc.id === accountId), [accounts, accountId]);
+    const showInstallmentOption = type === CategoryType.EXPENSE && selectedAccount?.type === AccountType.CREDIT_CARD;
 
     const filteredCategories = categories.filter(c => c.type === type);
     
@@ -39,7 +44,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
         if (accountId && !availableAccounts.some(acc => acc.id === accountId)) {
             setAccountId('');
         }
-    }, [type, availableAccounts, accountId]);
+        if (!showInstallmentOption) {
+            setIsInstallment(false);
+        }
+    }, [type, availableAccounts, accountId, showInstallmentOption]);
 
     const resetForm = () => {
         setType(CategoryType.EXPENSE);
@@ -48,6 +56,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
         setCategoryId('');
         setAccountId('');
         setDate(new Date().toISOString().split('T')[0]);
+        setIsInstallment(false);
+        setInstallments('2');
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -58,7 +68,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             return;
         }
 
-        onSave({
+        const transactionData: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'> = {
             description,
             amount: parseFloat(amount),
             date,
@@ -66,8 +76,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
             category: selectedCategory,
             accountId,
             status: TransactionStatus.PENDING,
-        });
+        };
 
+        if (isInstallment && showInstallmentOption) {
+            transactionData.installments = parseInt(installments, 10);
+        }
+
+        onSave(transactionData);
         resetForm();
     };
     
@@ -116,13 +131,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                         <input type="text" id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex: Mercado" required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary" />
                     </div>
                     <div>
-                        <label htmlFor="category" className="block text-sm font-medium text-muted-foreground mb-1">Categoria</label>
-                        <select id="category" value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
-                            <option value="" disabled>Selecione uma categoria</option>
-                            {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                        </select>
-                    </div>
-                    <div>
                         <label htmlFor="account" className="block text-sm font-medium text-muted-foreground mb-1">Conta</label>
                         <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
                             <option value="" disabled>Selecione uma conta</option>
@@ -136,6 +144,29 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                                     {creditCardAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                                 </optgroup>
                             )}
+                        </select>
+                    </div>
+
+                    {showInstallmentOption && (
+                        <div className="bg-secondary/50 border border-border rounded-md p-3 space-y-3">
+                             <div className="flex items-center">
+                                <input id="isInstallment" type="checkbox" checked={isInstallment} onChange={e => setIsInstallment(e.target.checked)} className="h-4 w-4 rounded custom-checkbox" />
+                                <label htmlFor="isInstallment" className="ml-2 block text-sm font-medium text-foreground">Compra Parcelada?</label>
+                             </div>
+                             {isInstallment && (
+                                <div className="animate-element">
+                                    <label htmlFor="installments" className="block text-sm font-medium text-muted-foreground mb-1">Número de Parcelas</label>
+                                    <input type="number" min="2" max="48" step="1" id="installments" value={installments} onChange={e => setInstallments(e.target.value)} className="w-full bg-background border border-border rounded-md p-2 text-foreground" />
+                                </div>
+                             )}
+                        </div>
+                    )}
+
+                    <div>
+                        <label htmlFor="category" className="block text-sm font-medium text-muted-foreground mb-1">Categoria</label>
+                        <select id="category" value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
+                            <option value="" disabled>Selecione uma categoria</option>
+                            {filteredCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                         </select>
                     </div>
                     <div>

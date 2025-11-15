@@ -65,6 +65,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   // Estados de visibilidade dos Modais
   const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
   const [isAccountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalForceType, setAccountModalForceType] = useState<AccountType | undefined>(undefined);
   const [isPaymentModalOpen, setPaymentModalOpen] = useState(false);
   const [isBudgetModalOpen, setBudgetModalOpen] = useState(false);
   const [isRuleModalOpen, setRuleModalOpen] = useState(false);
@@ -148,7 +149,10 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             ? ((categoriesMap.get(tx.category_id) as Category | undefined) || null)
             : null,
           accountId: tx.account_id,
-          status: tx.status
+          status: tx.status,
+          installments: tx.installments,
+          current_installment: tx.current_installment,
+          parent_transaction_id: tx.parent_transaction_id,
         })) || [];
       setTransactions(mappedTransactions);
 
@@ -183,7 +187,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [addNotification, user?.id]); // depende só do user.id
+  }, [addNotification, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -192,65 +196,82 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   // ==================================================================================
   // FUNÇÕES HANDLER PARA MODIFICAR O ESTADO
   // ==================================================================================
-  const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id'>) => {
-    const { category, accountId, ...rest } = newTransaction;
-    const { error } = await supabase.from('transactions').insert({
-      ...rest,
-      account_id: accountId,
-      category_id: category?.id,
-      user_id: user.id
-    });
+  const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>) => {
+    const { category, accountId, installments, ...rest } = newTransaction;
+    const account = accounts.find(acc => acc.id === accountId);
 
-    if (error) {
-      addNotification({
-        title: 'Erro',
-        message: 'Não foi possível salvar a transação.',
-        type: 'warning'
-      });
-      console.error(error);
-      return;
+    if (account?.type === AccountType.CREDIT_CARD && installments && installments > 1) {
+        // Handle installment transaction
+        const transactionsToInsert = [];
+        const parentId = crypto.randomUUID();
+        const installmentAmount = newTransaction.amount / installments;
+        const txDate = new Date(newTransaction.date + 'T12:00:00Z');
+
+        for (let i = 1; i <= installments; i++) {
+            const installmentDate = new Date(txDate);
+            installmentDate.setMonth(txDate.getMonth() + i - 1);
+            
+            transactionsToInsert.push({
+                ...rest,
+                account_id: accountId,
+                category_id: category?.id,
+                user_id: user.id,
+                description: `${newTransaction.description} (${i}/${installments})`,
+                amount: installmentAmount,
+                date: installmentDate.toISOString().split('T')[0],
+                status: TransactionStatus.PENDING,
+                parent_transaction_id: parentId,
+                current_installment: i,
+                installments: installments,
+            });
+        }
+
+        const { error } = await supabase.from('transactions').insert(transactionsToInsert);
+
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação parcelada.', type: 'warning' });
+            console.error(error);
+            return;
+        }
+
+        // Update current open invoice with the amount of the first installment
+        const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
+        if (openInvoice) {
+            await supabase.from('credit_invoices').update({ amount: openInvoice.amount + installmentAmount }).eq('id', openInvoice.id);
+        }
+
+    } else {
+        // Handle single transaction
+        const { error } = await supabase.from('transactions').insert({
+            ...rest,
+            account_id: accountId,
+            category_id: category?.id,
+            user_id: user.id
+        });
+
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação.', type: 'warning' });
+            console.error(error);
+            return;
+        }
+
+        if (account?.type === AccountType.CREDIT_CARD) {
+            const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
+            if (openInvoice) {
+                const amountChange = newTransaction.type === CategoryType.INCOME ? -newTransaction.amount : newTransaction.amount;
+                await supabase.from('credit_invoices').update({ amount: openInvoice.amount + amountChange }).eq('id', openInvoice.id);
+            }
+        } else if (account) {
+            const amountChange = newTransaction.type === CategoryType.INCOME ? newTransaction.amount : -newTransaction.amount;
+            await supabase.from('accounts').update({ balance: account.balance + amountChange }).eq('id', account.id);
+        }
     }
 
-    // Update account balance or invoice amount
-    const account = accounts.find(acc => acc.id === newTransaction.accountId);
-    if (account?.type === AccountType.CREDIT_CARD) {
-      const { data: openInvoice } = await supabase
-        .from('credit_invoices')
-        .select('*')
-        .eq('card_id', newTransaction.accountId)
-        .eq('status', 'Aberta')
-        .single();
-      if (openInvoice) {
-        const amountChange =
-          newTransaction.type === CategoryType.INCOME
-            ? -newTransaction.amount
-            : newTransaction.amount;
-        await supabase
-          .from('credit_invoices')
-          .update({ amount: openInvoice.amount + amountChange })
-          .eq('id', openInvoice.id)
-          .eq('user_id', user.id);
-      }
-    } else if (account) {
-      const amountChange =
-        newTransaction.type === CategoryType.INCOME
-          ? newTransaction.amount
-          : -newTransaction.amount;
-      await supabase
-        .from('accounts')
-        .update({ balance: account.balance + amountChange })
-        .eq('id', account.id)
-        .eq('user_id', user.id);
-    }
-
-    addNotification({
-      title: 'Sucesso',
-      message: 'Transação salva com sucesso!',
-      type: 'success'
-    });
+    addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
     await fetchData();
     setTransactionModalOpen(false);
-  };
+};
+
 
   const handleCreateAccount = async (newAccount: Omit<Account, 'id' | 'currency'>) => {
     const { data, error } = await supabase
@@ -275,14 +296,15 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       const capitalizedMonth =
         currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
 
+      const dueDay = newAccount.due_day || 15;
+      const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, dueDay);
+
       const newInvoice = {
         card_id: data.id,
         month: capitalizedMonth,
         status: 'Aberta' as const,
         amount: 0,
-        due_date: new Date(now.getFullYear(), now.getMonth() + 1, 15)
-          .toISOString()
-          .split('T')[0],
+        due_date: dueDate.toISOString().split('T')[0],
         user_id: user.id
       };
       await supabase.from('credit_invoices').insert(newInvoice);
@@ -303,7 +325,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       .update({
         name: updatedAccount.name,
         balance: updatedAccount.balance,
-        limit: updatedAccount.limit
+        limit: updatedAccount.limit,
+        due_day: updatedAccount.due_day
       })
       .eq('id', updatedAccount.id)
       .eq('user_id', user.id);
@@ -396,8 +419,15 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
 
+  const openAddAccountModal = (type?: AccountType) => {
+    setEditingAccount(null);
+    setAccountModalForceType(type);
+    setAccountModalOpen(true);
+  };
+
   const handleEditAccount = (account: Account) => {
     setEditingAccount(account);
+    setAccountModalForceType(undefined);
     setAccountModalOpen(true);
   };
 
@@ -736,16 +766,14 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             invoices={invoices}
             onPayInvoice={openPaymentModal}
             transactions={transactions}
+            onAddCard={() => openAddAccountModal(AccountType.CREDIT_CARD)}
           />
         );
       case 'Contas':
         return (
           <AccountsPage
             accounts={accounts}
-            onAddAccount={() => {
-              setEditingAccount(null);
-              setAccountModalOpen(true);
-            }}
+            onAddAccount={() => openAddAccountModal()}
             onEditAccount={handleEditAccount}
             onDeleteAccount={handleDeleteAccount}
           />
@@ -858,6 +886,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         onClose={() => {
           setAccountModalOpen(false);
           setEditingAccount(null);
+          setAccountModalForceType(undefined);
         }}
         onSave={accountData => {
           if ('id' in accountData) {
@@ -869,6 +898,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
           }
         }}
         accountToEdit={editingAccount}
+        forceType={accountModalForceType}
       />
       {selectedInvoice && (
         <PaymentModal

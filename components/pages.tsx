@@ -233,6 +233,8 @@ interface AccountsPageProps {
     onDeleteAccount: (accountId: string) => void;
 }
 export const AccountsPage: React.FC<AccountsPageProps> = ({ accounts, onAddAccount, onEditAccount, onDeleteAccount }) => {
+    const regularAccounts = accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD);
+    
     const accountIcons: { [key in AccountType]: React.ReactElement } = {
         [AccountType.CHECKING]: <WalletIcon className="h-6 w-6 text-primary" />,
         [AccountType.SAVINGS]: <WalletIcon className="h-6 w-6 text-green-500" />,
@@ -245,7 +247,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({ accounts, onAddAccou
     return (
         <PageWrapper title="Contas">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {accounts.map(account => (
+                {regularAccounts.map(account => (
                     <div key={account.id} className="relative bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
                         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-1">
                             <button onClick={() => onEditAccount(account)} className="p-2 bg-secondary rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" aria-label={`Editar conta ${account.name}`}>
@@ -351,8 +353,9 @@ interface CardsPageProps {
     onPayInvoice: (invoice: CreditInvoice) => void; 
     accounts: Account[];
     transactions: Transaction[];
+    onAddCard: () => void;
 }
-export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, accounts, transactions }) => {
+export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, accounts, transactions, onAddCard }) => {
     const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
     const creditCardAccounts = accounts.filter(acc => acc.type === AccountType.CREDIT_CARD);
 
@@ -369,24 +372,32 @@ export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, ac
     };
 
     const getTransactionsForInvoice = (invoice: CreditInvoice) => {
-        const dueDate = new Date(invoice.dueDate);
-        const invoiceDate = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth() - 1, 1));
-        const invoiceMonth = invoiceDate.getUTCMonth();
-        const invoiceYear = invoiceDate.getUTCFullYear();
+        // This logic might need adjustment based on closing date vs due date.
+        // Simple approach: find transactions for this card from the previous month.
+        const invoiceDate = new Date(invoice.dueDate + 'T00:00:00');
+        const targetMonth = invoiceDate.getMonth() === 0 ? 11 : invoiceDate.getMonth() - 1;
+        const targetYear = invoiceDate.getMonth() === 0 ? invoiceDate.getFullYear() - 1 : invoiceDate.getFullYear();
 
-        return transactions.filter(tx => {
-            if (tx.accountId !== invoice.cardId || tx.type !== CategoryType.EXPENSE) return false;
-            const txDate = new Date(tx.date);
-            return txDate.getUTCMonth() === invoiceMonth && txDate.getUTCFullYear() === invoiceYear;
-        });
+        return transactions
+            .filter(tx => {
+                if (tx.accountId !== invoice.cardId) return false;
+                const txDate = new Date(tx.date + 'T00:00:00');
+                return txDate.getMonth() === targetMonth && txDate.getFullYear() === targetYear;
+            })
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     };
     
     return (
         <PageWrapper title="Cartões de Crédito">
+            <div className="flex justify-end mb-4">
+                <ActionButton icon={PlusCircleIcon} onClick={onAddCard} variant="primary">
+                    Adicionar Cartão
+                </ActionButton>
+            </div>
             {creditCardAccounts.length === 0 ? (
                 <div className="bg-card border border-border p-6 rounded-xl shadow-sm text-center text-muted-foreground">
                     <p>Nenhum cartão de crédito cadastrado.</p>
-                    <p className="text-sm mt-2">Adicione um na página 'Contas' para vê-lo aqui.</p>
+                    <p className="text-sm mt-2">Clique em 'Adicionar Cartão' para começar.</p>
                 </div>
             ) : (
                 <div className="space-y-8">
