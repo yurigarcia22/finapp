@@ -14,12 +14,12 @@ interface DashboardProps {
 }
 
 const AccountCard: React.FC<{ account: Account }> = ({ account }) => (
-    <div className="bg-[#192134] p-4 rounded-lg flex items-center justify-between">
+    <div className="bg-secondary p-4 rounded-lg flex items-center justify-between">
         <div>
-            <p className="text-white font-semibold">{account.name}</p>
-            <p className="text-sm text-gray-400 capitalize">{account.type.replace('_', ' ')}</p>
+            <p className="text-secondary-foreground font-semibold">{account.name}</p>
+            <p className="text-sm text-muted-foreground capitalize">{account.type.replace('_', ' ')}</p>
         </div>
-        <p className={`font-bold text-lg ${account.balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+        <p className={`font-bold text-lg ${account.balance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.balance)}
         </p>
     </div>
@@ -29,31 +29,31 @@ const BudgetCard: React.FC<{ item: { name: string; spent: number; total: number;
     const percentage = item.total > 0 ? (item.spent / item.total) * 100 : 0;
     return (
         <div>
-            <div className="flex justify-between mb-1 text-sm">
-                <span className="font-medium text-gray-300">{item.name}</span>
-                <span className="text-gray-400">
+            <div className="flex justify-between mb-1.5 text-sm">
+                <span className="font-medium text-card-foreground">{item.name}</span>
+                <span className="text-muted-foreground">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.spent)} / {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total)}
                 </span>
             </div>
-            <div className="w-full bg-[#192134] rounded-full h-2.5">
-                <div className="h-2.5 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }}></div>
+            <div className="w-full bg-secondary rounded-full h-2">
+                <div className="h-2 rounded-full" style={{ width: `${Math.min(percentage, 100)}%`, backgroundColor: item.color }}></div>
             </div>
         </div>
     );
 };
 
 const UpcomingBillCard: React.FC<{ bill: {id: string; name: string; dueDate: string; amount: number;} }> = ({ bill }) => (
-    <div className="flex items-center justify-between p-3 hover:bg-[#192134] rounded-lg">
+    <div className="flex items-center justify-between p-3 hover:bg-secondary rounded-lg transition-colors duration-200">
         <div className="flex items-center">
-            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#192134] flex items-center justify-center">
-                 <CreditCardIcon className="h-6 w-6 text-gray-400" />
+            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-secondary flex items-center justify-center">
+                 <CreditCardIcon className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="ml-4">
-                <p className="font-semibold text-white">{bill.name}</p>
-                <p className="text-sm text-gray-400">Vence em {bill.dueDate}</p>
+                <p className="font-semibold text-card-foreground">{bill.name}</p>
+                <p className="text-sm text-muted-foreground">Vence em {bill.dueDate}</p>
             </div>
         </div>
-        <p className="font-semibold text-white">
+        <p className="font-semibold text-card-foreground">
             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(bill.amount)}
         </p>
     </div>
@@ -182,45 +182,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
 
     return (
         <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {kpiData.map((item) => <KpiCard key={item.title} item={item} />)}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Receitas vs Despesas (Últimos 6 meses)</h2>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <h2 className="text-lg font-semibold text-card-foreground mb-4">Receitas vs Despesas (Últimos 6 meses)</h2>
                         <MonthlySummaryBarChart data={monthlySummaryData} />
                     </div>
-                    <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Despesas por Categoria</h2>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <h2 className="text-lg font-semibold text-card-foreground mb-4">Despesas por Categoria</h2>
                         <CategoryPieChart data={transactions} />
                     </div>
 
                 </div>
 
                 <div className="space-y-8">
-                    <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                          <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold text-white">Contas</h2>
-                            <button className="text-gray-400 hover:text-white"><MoreVerticalIcon className="h-5 w-5"/></button>
+                            <h2 className="text-lg font-semibold text-card-foreground">Contas</h2>
+                            <button className="text-muted-foreground hover:text-foreground"><MoreVerticalIcon className="h-5 w-5"/></button>
                         </div>
-                        <div className="space-y-4">
-                            {accounts.map(acc => <AccountCard key={acc.id} account={acc} />)}
+                        <div className="space-y-3">
+                            {accounts.slice(0, 5).map(acc => <AccountCard key={acc.id} account={acc} />)}
                         </div>
                     </div>
 
-                    <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Orçamentos</h2>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <h2 className="text-lg font-semibold text-card-foreground mb-4">Orçamentos</h2>
                         <div className="space-y-4">
                             {budgetDetails.map(item => <BudgetCard key={item.name} item={item} />)}
                         </div>
                     </div>
                     
-                    <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Próximos Vencimentos</h2>
+                    <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                        <h2 className="text-lg font-semibold text-card-foreground mb-4">Próximos Vencimentos</h2>
                         <div className="space-y-2">
                             {upcomingBills.map(bill => <UpcomingBillCard key={bill.id} bill={bill} />)}
                         </div>

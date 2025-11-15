@@ -42,9 +42,11 @@ interface AppContentProps {
   profile: Profile | null;
   refetchProfile: () => void;
   onLogout: () => void;
+  theme: string;
+  setTheme: (theme: string) => void;
 }
 
-const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfile, onLogout }) => {
+const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfile, onLogout, theme, setTheme }) => {
   const { user } = session;
   const { addNotification } = useNotifications();
   // ==================================================================================
@@ -773,6 +775,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             user={user}
             profile={profile}
             onProfileUpdate={refetchProfile}
+            theme={theme}
+            setTheme={setTheme}
           />
         );
       default:
@@ -789,7 +793,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   };
 
   return (
-    <div className="flex h-screen bg-[#0B0F1A] text-[#E2E8F0]">
+    <div className="flex h-screen bg-background text-foreground">
       <Sidebar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -802,11 +806,11 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
           setCurrentPage={setCurrentPage}
           onLogout={onLogout}
         />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-[#0B0F1A] p-6 lg:p-8">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background p-6 lg:p-8">
           {loading ? (
             <div className="flex justify-center items-center h-full">
               <svg
-                className="animate-spin -ml-1 mr-3 h-10 w-10 text-white"
+                className="animate-spin -ml-1 mr-3 h-8 w-8 text-primary"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -825,7 +829,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="text-xl">Carregando dados...</span>
+              <span className="text-lg text-muted-foreground">Carregando dados...</span>
             </div>
           ) : (
             renderPage()
@@ -834,7 +838,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       </div>
       <button
         onClick={() => setTransactionModalOpen(true)}
-        className="fixed bottom-8 right-8 bg-[#6464FF] text-white p-4 rounded-full shadow-lg hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0F1A] focus:ring-[#6464FF] transition-transform duration-200 ease-in-out hover:scale-110 z-30"
+        className="fixed bottom-8 right-8 bg-primary text-primary-foreground p-4 rounded-full shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-primary transition-all duration-300 ease-in-out hover:scale-110 z-30"
         aria-label="Adicionar Nova Transação"
       >
         <PlusIcon className="h-6 w-6" />
@@ -904,17 +908,28 @@ const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') || 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   const fetchProfile = useCallback(async (user: User) => {
     const { data, error } = await supabase
       .from('profiles')
-      // FIX: Select all profile fields to match the 'Profile' type, which requires 'id'.
       .select('*')
       .eq('id', user.id)
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      // PGRST116: no rows found
       console.error('Error fetching profile:', error);
     } else if (data) {
       setProfile(data);
@@ -959,7 +974,6 @@ const App = () => {
       } else {
         setProfile(null);
       }
-      // não mexe no loading aqui
     });
 
     return () => {
@@ -973,9 +987,9 @@ const App = () => {
   };
 
   const loadingSpinner = (
-    <div className="flex justify-center items-center h-screen bg-[#0B0F1A]">
+    <div className="flex justify-center items-center h-screen bg-background">
       <svg
-        className="animate-spin h-10 w-10 text-white"
+        className="animate-spin h-10 w-10 text-primary"
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
@@ -1015,6 +1029,8 @@ const App = () => {
               session.user ? fetchProfile(session.user) : Promise.resolve()
             }
             onLogout={handleLogout}
+            theme={theme}
+            setTheme={setTheme}
           />
         )}
       </Suspense>

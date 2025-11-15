@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import { EyeIcon, EyeOffIcon } from './icons';
 
-// --- HELPER COMPONENTS (ICONS) ---
 const GoogleIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 48 48">
         <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s12-5.373 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-2.641-.21-5.236-.611-7.743z" />
@@ -12,7 +11,6 @@ const GoogleIcon = () => (
     </svg>
 );
 
-// --- TYPE DEFINITIONS ---
 export interface Testimonial {
   avatarSrc: string;
   name: string;
@@ -20,11 +18,8 @@ export interface Testimonial {
   text: string;
 }
 
-// --- SUB-COMPONENTS ---
-// FIX: Explicitly define the 'children' prop for the component. In modern React with TypeScript,
-// React.FC no longer includes an implicit 'children' prop, so it must be declared in the component's props type.
 const GlassInputWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="rounded-2xl border border-border bg-foreground/5 backdrop-blur-sm transition-colors focus-within:border-violet-400/70 focus-within:bg-violet-500/10">
+  <div className="rounded-2xl border border-border bg-foreground/5 backdrop-blur-sm transition-colors focus-within:border-primary/70 focus-within:bg-primary/10">
     {children}
   </div>
 );
@@ -33,14 +28,13 @@ const TestimonialCard = ({ testimonial, delay }: { testimonial: Testimonial, del
   <div className={`animate-testimonial ${delay} flex items-start gap-3 rounded-3xl bg-card/40 backdrop-blur-xl border border-white/10 p-5 w-64`}>
     <img src={testimonial.avatarSrc} className="h-10 w-10 object-cover rounded-2xl" alt="avatar" />
     <div className="text-sm leading-snug">
-      <p className="flex items-center gap-1 font-medium">{testimonial.name}</p>
+      <p className="flex items-center gap-1 font-medium text-white">{testimonial.name}</p>
       <p className="text-muted-foreground">{testimonial.handle}</p>
-      <p className="mt-1 text-foreground/80">{testimonial.text}</p>
+      <p className="mt-1 text-white/80">{testimonial.text}</p>
     </div>
   </div>
 );
 
-// --- MOCK DATA ---
 const testimonials: Testimonial[] = [
     {
         avatarSrc: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
@@ -64,7 +58,6 @@ const testimonials: Testimonial[] = [
 
 const loginImageUrl = 'https://i.ibb.co/7thW9pyx/Gemini-Generated-Image-gumbxxgumbxxgumb.png';
 
-// --- MAIN COMPONENT ---
 export const AuthPage: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
@@ -87,11 +80,9 @@ export const AuthPage: React.FC = () => {
 
         try {
             if (isLogin) {
-                // Login
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
                 if (signInError) throw signInError;
             } else {
-                // Sign up
                 const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
                     email,
                     password,
@@ -100,14 +91,12 @@ export const AuthPage: React.FC = () => {
                 if (signUpError) throw signUpError;
                 if (!signUpData.user) throw new Error("Cadastro falhou, usuário não retornado.");
 
-                // Manually insert into profiles table to avoid trigger issues
                 const { error: profileError } = await supabase
                     .from('profiles')
                     .insert({ id: signUpData.user.id, full_name: fullName });
                 
                 if (profileError) {
                     console.error("Profile creation error:", profileError);
-                    // This custom error will be caught by the outer catch block
                     throw new Error("Sua conta foi criada, mas não foi possível salvar seu nome. Verifique se a tabela 'profiles' e suas permissões (RLS) estão configuradas corretamente no Supabase.");
                 }
                 setMessage('Cadastro realizado! Por favor, verifique seu e-mail para confirmar sua conta.');
@@ -156,8 +145,7 @@ export const AuthPage: React.FC = () => {
 
 
   return (
-    <div className="h-[100dvh] flex flex-col md:flex-row font-geist w-[100dvw] bg-background text-foreground">
-      {/* Left column: sign-in form */}
+    <div className="h-[100dvh] flex flex-col md:flex-row font-geist w-[100dvw] bg-background text-foreground dark:text-foreground">
       <section className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="flex flex-col gap-6">
@@ -202,11 +190,11 @@ export const AuthPage: React.FC = () => {
                   <input type="checkbox" name="rememberMe" className="custom-checkbox" />
                   <span className="text-foreground/90">Manter-me conectado</span>
                 </label>
-                <a href="#" onClick={(e) => { e.preventDefault(); handleResetPassword(); }} className="hover:underline text-violet-400 transition-colors">Esqueceu a senha?</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); handleResetPassword(); }} className="hover:underline text-primary transition-colors">Esqueceu a senha?</a>
               </div>
               
-              {error && <p className="animate-element text-sm text-red-400 text-center">{error}</p>}
-              {message && <p className="animate-element text-sm text-green-400 text-center">{message}</p>}
+              {error && <p className="animate-element text-sm text-red-500 text-center">{error}</p>}
+              {message && <p className="animate-element text-sm text-green-500 text-center">{message}</p>}
 
               <button type="submit" disabled={loading} className="animate-element animate-delay-700 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {loading ? 'Carregando...' : (isLogin ? 'Entrar' : 'Criar Conta')}
@@ -225,7 +213,7 @@ export const AuthPage: React.FC = () => {
 
             <p className="animate-element animate-delay-1000 text-center text-sm text-muted-foreground">
               {isLogin ? 'Novo na plataforma?' : 'Já possui uma conta?'}{' '}
-              <a href="#" onClick={toggleAuthMode} className="text-violet-400 hover:underline transition-colors">
+              <a href="#" onClick={toggleAuthMode} className="text-primary hover:underline transition-colors">
                  {isLogin ? 'Criar Conta' : 'Fazer Login'}
               </a>
             </p>
@@ -233,8 +221,7 @@ export const AuthPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Right column: hero image + testimonials */}
-      <section className="hidden md:block flex-1 relative p-4">
+      <section className="hidden md:block flex-1 relative p-4 bg-[#0B0F1A]">
         <div 
           className="animate-slide-right animate-delay-300 absolute inset-4 rounded-3xl bg-secondary bg-cover bg-center transition-all duration-500"
           style={{ backgroundImage: `url('${loginImageUrl}')` }}

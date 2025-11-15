@@ -28,37 +28,36 @@ export const Header: React.FC<HeaderProps> = ({ user, profile, setCurrentPage, o
     const displayName = profile?.full_name || user.email;
 
     return (
-        <header className="relative z-10 flex-shrink-0 flex h-16 bg-[#10192A] shadow-md">
+        <header className="relative z-10 flex-shrink-0 flex h-16 bg-card border-b border-border">
             <div className="flex-1 px-4 flex justify-between sm:px-6 lg:px-8">
                 <div className="flex-1 flex">
-                    <form className="w-full flex md:ml-0" action="#" method="GET">
+                    <div className="w-full flex md:ml-0">
                         <label htmlFor="search-field" className="sr-only">
                             Pesquisar
                         </label>
-                        <div className="relative w-full text-gray-400 focus-within:text-gray-200">
+                        <div className="relative w-full text-muted-foreground focus-within:text-foreground">
                             <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
                                 <SearchIcon className="h-5 w-5" aria-hidden="true" />
                             </div>
                             <input
                                 id="search-field"
-                                className="block w-full h-full pl-8 pr-3 py-2 border-transparent bg-transparent text-white placeholder-gray-400 focus:outline-none focus:placeholder-gray-300 focus:ring-0 focus:border-transparent sm:text-sm"
-                                placeholder="Pesquisar transações, orçamentos, etc. (⌘K)"
+                                className="block w-full h-full pl-8 pr-3 py-2 border-transparent bg-transparent text-foreground placeholder-muted-foreground focus:outline-none focus:placeholder-foreground focus:ring-0 focus:border-transparent sm:text-sm"
+                                placeholder="Pesquisar transações, orçamentos, etc."
                                 type="search"
                                 name="search"
                             />
                         </div>
-                    </form>
+                    </div>
                 </div>
                 <div className="ml-4 flex items-center md:ml-6">
                     <NotificationBell />
 
-                    {/* Profile dropdown */}
-                    <div className="ml-3 relative" ref={menuRef}>
+                    <div className="ml-4 relative" ref={menuRef}>
                         <div>
                             <button
                                 type="button"
                                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="max-w-xs bg-gray-800 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
+                                className="max-w-xs bg-transparent rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-card focus:ring-primary"
                                 id="user-menu-button"
                                 aria-expanded="false"
                                 aria-haspopup="true"
@@ -69,13 +68,13 @@ export const Header: React.FC<HeaderProps> = ({ user, profile, setCurrentPage, o
                                     src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || '')}&background=6464FF&color=fff&bold=true`}
                                     alt="User profile"
                                 />
-                                <span className="hidden md:block ml-2 text-white text-sm font-medium">{displayName}</span>
-                                <ChevronDownIcon className="hidden md:block ml-1 h-5 w-5 text-gray-400" />
+                                <span className="hidden md:block ml-3 text-foreground text-sm font-medium">{displayName}</span>
+                                <ChevronDownIcon className="hidden md:block ml-1 h-5 w-5 text-muted-foreground" />
                             </button>
                         </div>
                          {isMenuOpen && (
                             <div
-                                className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-[#1E293B] ring-1 ring-black ring-opacity-5 focus:outline-none"
+                                className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-popover ring-1 ring-border ring-opacity-5 focus:outline-none animate-element"
                                 role="menu"
                                 aria-orientation="vertical"
                                 aria-labelledby="user-menu-button"
@@ -85,14 +84,14 @@ export const Header: React.FC<HeaderProps> = ({ user, profile, setCurrentPage, o
                                         setCurrentPage('Configurações');
                                         setIsMenuOpen(false);
                                     }}
-                                    className="w-full text-left block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                    className="w-full text-left block px-4 py-2 text-sm text-popover-foreground hover:bg-accent"
                                     role="menuitem"
                                 >
                                     Meu Perfil
                                 </button>
                                 <button
                                     onClick={onLogout}
-                                    className="w-full text-left block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                                    className="w-full text-left block px-4 py-2 text-sm text-popover-foreground hover:bg-accent"
                                     role="menuitem"
                                 >
                                     Sair

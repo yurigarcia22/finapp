@@ -7,20 +7,42 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
               border: 'var(--border)',
+              input: 'var(--input)',
+              ring: 'var(--ring)',
               background: 'var(--background)',
               foreground: 'var(--foreground)',
-              card: 'var(--card)',
               primary: {
                 DEFAULT: 'var(--primary)',
                 foreground: 'var(--primary-foreground)',
               },
-              secondary: 'var(--secondary)',
+              secondary: {
+                DEFAULT: 'var(--secondary)',
+                foreground: 'var(--secondary-foreground)',
+              },
+              destructive: {
+                DEFAULT: 'var(--destructive)',
+                foreground: 'var(--destructive-foreground)',
+              },
               muted: {
+                DEFAULT: 'var(--muted)',
                 foreground: 'var(--muted-foreground)',
+              },
+              accent: {
+                DEFAULT: 'var(--accent)',
+                foreground: 'var(--accent-foreground)',
+              },
+              popover: {
+                DEFAULT: 'var(--popover)',
+                foreground: 'var(--popover-foreground)',
+              },
+              card: {
+                DEFAULT: 'var(--card)',
+                foreground: 'var(--card-foreground)',
               },
             }
           }
@@ -32,19 +54,54 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist+Sans:wght@100..900&display=swap" rel="stylesheet">
     <style>
       :root {
+        --background: #FFFFFF;
+        --foreground: #020817;
+        --card: #FFFFFF;
+        --card-foreground: #020817;
+        --popover: #FFFFFF;
+        --popover-foreground: #020817;
+        --primary: #6464FF;
+        --primary-foreground: #FAFAFA;
+        --secondary: #F1F5F9;
+        --secondary-foreground: #0F172A;
+        --muted: #F1F5F9;
+        --muted-foreground: #64748B;
+        --accent: #F1F5F9;
+        --accent-foreground: #0F172A;
+        --destructive: #EF4444;
+        --destructive-foreground: #FAFAFA;
+        --border: #E2E8F0;
+        --input: #E2E8F0;
+        --ring: #6464FF;
+      }
+ 
+      .dark {
         --background: #0B0F1A;
         --foreground: #E2E8F0;
         --card: #10192A;
+        --card-foreground: #E2E8F0;
+        --popover: #0B0F1A;
+        --popover-foreground: #E2E8F0;
         --primary: #6464FF;
-        --primary-foreground: #FFFFFF;
+        --primary-foreground: #FAFAFA;
         --secondary: #1E293B;
+        --secondary-foreground: #E2E8F0;
+        --muted: #1E293B;
         --muted-foreground: #94A3B8;
+        --accent: #1E293B;
+        --accent-foreground: #E2E8F0;
+        --destructive: #7F1D1D;
+        --destructive-foreground: #FAFAFA;
         --border: #334155;
+        --input: #334155;
+        --ring: #6464FF;
       }
+      
       body {
         font-family: 'Geist Sans', sans-serif;
         background-color: var(--background);
         color: var(--foreground);
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
       
       .font-geist {
@@ -54,7 +111,7 @@
       @keyframes element-in {
         from {
           opacity: 0;
-          transform: translateY(20px);
+          transform: translateY(10px);
         }
         to {
           opacity: 1;
@@ -65,7 +122,7 @@
       @keyframes slide-right-in {
         from {
           opacity: 0;
-          transform: translateX(-30px);
+          transform: translateX(-20px);
         }
         to {
           opacity: 1;
@@ -76,7 +133,7 @@
       @keyframes testimonial-in {
          from {
           opacity: 0;
-          transform: translateY(30px) scale(0.95);
+          transform: translateY(20px) scale(0.98);
         }
         to {
           opacity: 1;
@@ -84,9 +141,9 @@
         }
       }
 
-      .animate-element { animation: element-in 0.6s both; }
-      .animate-slide-right { animation: slide-right-in 0.8s cubic-bezier(0.25, 1, 0.5, 1) both; }
-      .animate-testimonial { animation: testimonial-in 0.7s cubic-bezier(0.25, 1, 0.5, 1) both; }
+      .animate-element { animation: element-in 0.5s cubic-bezier(0.25, 1, 0.5, 1) both; }
+      .animate-slide-right { animation: slide-right-in 0.6s cubic-bezier(0.25, 1, 0.5, 1) both; }
+      .animate-testimonial { animation: testimonial-in 0.6s cubic-bezier(0.25, 1, 0.5, 1) both; }
 
       .animate-delay-100 { animation-delay: 0.1s; }
       .animate-delay-200 { animation-delay: 0.2s; }
@@ -110,7 +167,7 @@
         height: 1.15em;
         cursor: pointer;
         position: relative;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
       }
       .custom-checkbox:checked {
         background-color: var(--primary);

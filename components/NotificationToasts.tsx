@@ -15,26 +15,26 @@ const Toast: React.FC<{ notification: Notification; onDismiss: (id: string) => v
     }, [notification.id, onDismiss]);
 
     const iconMap = {
-        info: <InfoIcon className="h-6 w-6 text-blue-400" />,
-        success: <CheckCircleIcon className="h-6 w-6 text-green-400" />,
-        warning: <InfoIcon className="h-6 w-6 text-yellow-400" />,
+        info: <InfoIcon className="h-6 w-6 text-blue-500" />,
+        success: <CheckCircleIcon className="h-6 w-6 text-green-500" />,
+        warning: <InfoIcon className="h-6 w-6 text-yellow-500" />,
     };
 
     return (
-        <div className="bg-[#1E293B] shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden w-full max-w-sm">
+        <div className="bg-card shadow-lg rounded-lg pointer-events-auto ring-1 ring-border/50 overflow-hidden w-full max-w-sm">
             <div className="p-4">
                 <div className="flex items-start">
                     <div className="flex-shrink-0">
                         {iconMap[notification.type]}
                     </div>
                     <div className="ml-3 w-0 flex-1 pt-0.5">
-                        <p className="text-sm font-medium text-white">{notification.title}</p>
-                        <p className="mt-1 text-sm text-gray-400">{notification.message}</p>
+                        <p className="text-sm font-medium text-card-foreground">{notification.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
                     </div>
                     <div className="ml-4 flex-shrink-0 flex">
                         <button
                             onClick={() => onDismiss(notification.id)}
-                            className="rounded-md inline-flex text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            className="rounded-md inline-flex text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                         >
                             <span className="sr-only">Fechar</span>
                             <XIcon className="h-5 w-5" />
@@ -52,25 +52,20 @@ export const NotificationToasts: React.FC = () => {
     const [processedIds, setProcessedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        // Find notifications from the global list that haven't been processed yet
         const newNotifications = notifications.filter(n => !processedIds.has(n.id));
 
         if (newNotifications.length > 0) {
-            // Add new notifications to the display list
             setToasts(prev => [...newNotifications, ...prev].slice(0, 3));
             
-            // Update the set of processed IDs
             setProcessedIds(prev => {
                 const newIds = new Set(prev);
                 newNotifications.forEach(n => newIds.add(n.id));
                 return newIds;
             });
         }
-    }, [notifications]); // Depend only on the global notifications list
+    }, [notifications]);
 
     const handleDismiss = (id: string) => {
-        // Only remove the toast from the visible list.
-        // The processedIds set ensures it won't be re-added.
         setToasts(prev => prev.filter(t => t.id !== id));
     };
 

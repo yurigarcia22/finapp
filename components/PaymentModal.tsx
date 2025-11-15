@@ -25,31 +25,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onS
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
-            <div className="bg-[#10192A] rounded-xl shadow-2xl w-full max-w-md p-8 m-4 text-white" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-element" onClick={onClose}>
+            <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-8 m-4 text-card-foreground" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold">Pagar Fatura</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
                         <XIcon className="h-6 w-6" />
                     </button>
                 </div>
-                <div className='mb-6 p-4 bg-[#1E293B] rounded-lg'>
-                    <p className="text-gray-400">Fatura de {invoice.month}</p>
-                    <p className="text-2xl font-bold text-yellow-400">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(invoice.amount)}</p>
-                    <p className="text-sm text-gray-500">Vencimento: {new Date(invoice.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
+                <div className='mb-6 p-4 bg-secondary rounded-lg'>
+                    <p className="text-muted-foreground">Fatura de {invoice.month}</p>
+                    <p className="text-2xl font-bold text-yellow-500">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(invoice.amount)}</p>
+                    <p className="text-sm text-muted-foreground/80">Vencimento: {new Date(invoice.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="payment-account" className="block text-sm font-medium text-gray-400 mb-1">Pagar com</label>
-                        <select id="payment-account" value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white">
+                        <label htmlFor="payment-account" className="block text-sm font-medium text-muted-foreground mb-1">Pagar com</label>
+                        <select id="payment-account" value={paymentAccountId} onChange={e => setPaymentAccountId(e.target.value)} required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground">
                             {paymentAccounts.map(acc => (
                                 <option key={acc.id} value={acc.id}>{acc.name} (Saldo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(acc.balance)})</option>
                             ))}
                         </select>
                     </div>
                     <div className="pt-4 flex justify-end space-x-3">
-                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-[#1E293B] hover:bg-gray-700">Cancelar</button>
-                        <button type="submit" className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold">Confirmar Pagamento</button>
+                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-accent">Cancelar</button>
+                        <button type="submit" className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">Confirmar Pagamento</button>
                     </div>
                 </form>
             </div>

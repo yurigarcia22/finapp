@@ -1,9 +1,7 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Account, AccountType, Category, CategoryType, Transaction, TransactionStatus, CreditInvoice, Budget, Rule, Profile } from '../types';
-import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, UserIcon, TagIcon, ChevronDownIcon } from './icons';
+import { FilterIcon, UploadIcon, DownloadIcon, EditIcon, Trash2Icon, CreditCardIcon, WalletIcon, PlusCircleIcon, ToggleLeftIcon, ToggleRightIcon, TagIcon, ChevronDownIcon, SunIcon, MoonIcon } from './icons';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -14,18 +12,27 @@ import { supabase } from '../supabase';
 // COMPONENTES UTILITÁRIOS
 // ==================================================================================
 const PageWrapper: React.FC<{ title: string; children?: React.ReactNode }> = ({ title, children }) => (
-    <div className="text-white animate-fade-in">
-        <h1 className="text-3xl font-bold mb-6">{title}</h1>
+    <div className="text-foreground animate-element">
+        <h1 className="text-3xl font-bold mb-8">{title}</h1>
         {children}
     </div>
 );
 
-const ActionButton: React.FC<{ icon: React.ElementType, children: React.ReactNode, onClick?: () => void, className?: string }> = ({ icon: Icon, children, onClick, className = '' }) => (
-    <button onClick={onClick} className={`flex items-center bg-[#1E293B] hover:bg-[#334155] text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 ${className}`}>
-        <Icon className="h-5 w-5 mr-2" />
-        {children}
-    </button>
-);
+const ActionButton: React.FC<{ icon: React.ElementType, children: React.ReactNode, onClick?: () => void, className?: string, variant?: 'primary' | 'secondary' }> = ({ icon: Icon, children, onClick, className = '', variant = 'secondary' }) => {
+    const baseClasses = "flex items-center font-medium py-2 px-4 rounded-lg transition-colors duration-200";
+    const variantClasses = {
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+    };
+
+    return (
+        <button onClick={onClick} className={`${baseClasses} ${variantClasses[variant]} ${className}`}>
+            <Icon className="h-5 w-5 mr-2" />
+            {children}
+        </button>
+    );
+};
+
 
 // ==================================================================================
 // PÁGINA DE TRANSAÇÕES
@@ -134,77 +141,77 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({ transactions
                 </div>
 
                 {showFilters && (
-                    <div className="bg-[#10192A] p-4 rounded-xl shadow-lg space-y-4 animate-fade-in-down">
+                    <div className="bg-card border border-border p-4 rounded-xl shadow-sm space-y-4 animate-element">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div>
-                                <label className="text-sm font-medium text-gray-400 block mb-2">Tipo</label>
-                                <select value={filters.type} onChange={e => handleFilterChange('type', e.target.value)} className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white">
+                                <label className="text-sm font-medium text-muted-foreground block mb-2">Tipo</label>
+                                <select value={filters.type} onChange={e => handleFilterChange('type', e.target.value)} className="w-full bg-secondary border border-border rounded-md p-2 text-foreground">
                                     <option value="all">Todos</option>
                                     <option value={CategoryType.INCOME}>Receitas</option>
                                     <option value={CategoryType.EXPENSE}>Despesas</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="text-sm font-medium text-gray-400 block mb-2">Conta</label>
-                                <select value={filters.accountId} onChange={e => handleFilterChange('accountId', e.target.value)} className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white">
+                                <label className="text-sm font-medium text-muted-foreground block mb-2">Conta</label>
+                                <select value={filters.accountId} onChange={e => handleFilterChange('accountId', e.target.value)} className="w-full bg-secondary border border-border rounded-md p-2 text-foreground">
                                     <option value="all">Todas as Contas</option>
                                     {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                                 </select>
                             </div>
                         </div>
                         <div>
-                             <label className="text-sm font-medium text-gray-400 block mb-2">Período</label>
+                             <label className="text-sm font-medium text-muted-foreground block mb-2">Período</label>
                              <div className="flex flex-wrap gap-2">
                                 {datePresets.map(preset => (
-                                    <button key={preset.key} onClick={() => handleDatePresetChange(preset.key)} className={`px-3 py-1 rounded-md text-sm ${filters.datePreset === preset.key ? 'bg-[#6464FF] text-white' : 'bg-[#1E293B]'}`}>{preset.label}</button>
+                                    <button key={preset.key} onClick={() => handleDatePresetChange(preset.key)} className={`px-3 py-1 rounded-md text-sm transition-colors ${filters.datePreset === preset.key ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-accent'}`}>{preset.label}</button>
                                 ))}
                              </div>
                         </div>
                         {filters.datePreset === 'custom' && (
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                                  <div>
-                                     <label className="text-sm font-medium text-gray-400 block mb-2">Data Início</label>
-                                     <input type="date" value={filters.startDate} onChange={e => handleFilterChange('startDate', e.target.value)} className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white" />
+                                     <label className="text-sm font-medium text-muted-foreground block mb-2">Data Início</label>
+                                     <input type="date" value={filters.startDate} onChange={e => handleFilterChange('startDate', e.target.value)} className="w-full bg-secondary border border-border rounded-md p-2 text-foreground" />
                                  </div>
                                  <div>
-                                     <label className="text-sm font-medium text-gray-400 block mb-2">Data Fim</label>
-                                     <input type="date" value={filters.endDate} onChange={e => handleFilterChange('endDate', e.target.value)} className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white" />
+                                     <label className="text-sm font-medium text-muted-foreground block mb-2">Data Fim</label>
+                                     <input type="date" value={filters.endDate} onChange={e => handleFilterChange('endDate', e.target.value)} className="w-full bg-secondary border border-border rounded-md p-2 text-foreground" />
                                  </div>
                              </div>
                         )}
                         <div className="flex justify-end pt-2">
-                            <button onClick={clearFilters} className="text-sm text-gray-400 hover:text-white">Limpar Filtros</button>
+                            <button onClick={clearFilters} className="text-sm text-muted-foreground hover:text-foreground">Limpar Filtros</button>
                         </div>
                     </div>
                 )}
 
-                <div className="bg-[#10192A] rounded-xl shadow-lg">
+                <div className="bg-card rounded-xl border border-border shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left text-gray-400">
-                            <thead className="text-xs text-gray-300 uppercase bg-[#192134]">
+                        <table className="w-full text-sm text-left text-muted-foreground">
+                            <thead className="text-xs text-muted-foreground uppercase bg-secondary">
                                 <tr>
-                                    <th scope="col" className="p-4 w-12">Status</th>
-                                    <th scope="col" className="px-6 py-3">Descrição</th>
-                                    <th scope="col" className="px-6 py-3">Categoria</th>
-                                    <th scope="col" className="px-6 py-3">Data</th>
-                                    <th scope="col" className="px-6 py-3">Conta</th>
-                                    <th scope="col" className="px-6 py-3 text-right">Valor</th>
-                                    <th scope="col" className="px-6 py-3 text-center">Ações</th>
+                                    <th scope="col" className="p-4 w-12"></th>
+                                    <th scope="col" className="px-6 py-3 font-medium">Descrição</th>
+                                    <th scope="col" className="px-6 py-3 font-medium">Categoria</th>
+                                    <th scope="col" className="px-6 py-3 font-medium">Data</th>
+                                    <th scope="col" className="px-6 py-3 font-medium">Conta</th>
+                                    <th scope="col" className="px-6 py-3 text-right font-medium">Valor</th>
+                                    <th scope="col" className="px-6 py-3 text-center font-medium">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredTransactions.map((tx) => (
-                                    <tr key={tx.id} className="border-b border-[#192134] hover:bg-[#192134]/50">
-                                        <td className="p-4"><div className="flex justify-center"><span className={`h-3 w-3 rounded-full ${statusMap[tx.status].color}`} title={statusMap[tx.status].text}></span></div></td>
-                                        <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{tx.description}</td>
-                                        <td className="px-6 py-4"><div className="flex items-center"><span className="h-2.5 w-2.5 rounded-full mr-2" style={{ backgroundColor: tx.category?.color || '#808080' }}></span>{tx.category?.name || 'Sem Categoria'}</div></td>
+                                    <tr key={tx.id} className="border-b border-border hover:bg-secondary">
+                                        <td className="p-4"><div className="flex justify-center"><span className={`h-2.5 w-2.5 rounded-full ${statusMap[tx.status].color}`} title={statusMap[tx.status].text}></span></div></td>
+                                        <td className="px-6 py-4 font-medium text-foreground whitespace-nowrap">{tx.description}</td>
+                                        <td className="px-6 py-4"><div className="flex items-center"><span className="h-2.5 w-2.5 rounded-full mr-2" style={{ backgroundColor: tx.category?.color || '#808080' }}></span>{tx.category?.name || 'N/A'}</div></td>
                                         <td className="px-6 py-4">{new Date(tx.date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' })}</td>
                                         <td className="px-6 py-4">{getAccountName(tx.accountId)}</td>
-                                        <td className={`px-6 py-4 text-right font-semibold ${tx.type === CategoryType.INCOME ? 'text-green-400' : 'text-white'}`}>
+                                        <td className={`px-6 py-4 text-right font-semibold ${tx.type === CategoryType.INCOME ? 'text-green-500' : 'text-foreground'}`}>
                                             {tx.type === CategoryType.EXPENSE ? '-' : ''}
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
                                         </td>
-                                        <td className="px-6 py-4"><div className="flex items-center justify-center space-x-3"><button className="text-gray-400 hover:text-white"><EditIcon className="h-5 w-5" /></button><button onClick={() => onDeleteTransaction(tx)} className="text-gray-400 hover:text-red-500"><Trash2Icon className="h-5 w-5" /></button></div></td>
+                                        <td className="px-6 py-4"><div className="flex items-center justify-center space-x-3"><button className="text-muted-foreground hover:text-foreground"><EditIcon className="h-4 w-4" /></button><button onClick={() => onDeleteTransaction(tx)} className="text-muted-foreground hover:text-red-500"><Trash2Icon className="h-4 w-4" /></button></div></td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -227,46 +234,46 @@ interface AccountsPageProps {
 }
 export const AccountsPage: React.FC<AccountsPageProps> = ({ accounts, onAddAccount, onEditAccount, onDeleteAccount }) => {
     const accountIcons: { [key in AccountType]: React.ReactElement } = {
-        [AccountType.CHECKING]: <WalletIcon className="h-6 w-6 text-[#6464FF]" />,
-        [AccountType.SAVINGS]: <WalletIcon className="h-6 w-6 text-green-400" />,
-        [AccountType.WALLET]: <WalletIcon className="h-6 w-6 text-yellow-400" />,
-        [AccountType.CREDIT_CARD]: <CreditCardIcon className="h-6 w-6 text-red-400" />,
-        [AccountType.INVESTMENT]: <WalletIcon className="h-6 w-6 text-indigo-400" />,
-        [AccountType.LOAN]: <WalletIcon className="h-6 w-6 text-orange-400" />,
+        [AccountType.CHECKING]: <WalletIcon className="h-6 w-6 text-primary" />,
+        [AccountType.SAVINGS]: <WalletIcon className="h-6 w-6 text-green-500" />,
+        [AccountType.WALLET]: <WalletIcon className="h-6 w-6 text-yellow-500" />,
+        [AccountType.CREDIT_CARD]: <CreditCardIcon className="h-6 w-6 text-red-500" />,
+        [AccountType.INVESTMENT]: <WalletIcon className="h-6 w-6 text-indigo-500" />,
+        [AccountType.LOAN]: <WalletIcon className="h-6 w-6 text-orange-500" />,
     };
 
     return (
         <PageWrapper title="Contas">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {accounts.map(account => (
-                    <div key={account.id} className="relative bg-[#10192A] p-6 rounded-xl shadow-lg flex flex-col justify-between transform hover:-translate-y-1 transition-transform duration-300 group">
+                    <div key={account.id} className="relative bg-card p-6 rounded-xl border border-border shadow-sm flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
                         <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-1">
-                            <button onClick={() => onEditAccount(account)} className="p-2 bg-[#1E293B] rounded-full text-gray-400 hover:text-white hover:bg-[#334155] transition-colors" aria-label={`Editar conta ${account.name}`}>
+                            <button onClick={() => onEditAccount(account)} className="p-2 bg-secondary rounded-full text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" aria-label={`Editar conta ${account.name}`}>
                                 <EditIcon className="w-4 h-4" />
                             </button>
-                            <button onClick={() => onDeleteAccount(account.id)} className="p-2 bg-[#1E293B] rounded-full text-gray-400 hover:text-red-500 hover:bg-[#334155] transition-colors" aria-label={`Excluir conta ${account.name}`}>
+                            <button onClick={() => onDeleteAccount(account.id)} className="p-2 bg-secondary rounded-full text-muted-foreground hover:text-red-500 hover:bg-accent transition-colors" aria-label={`Excluir conta ${account.name}`}>
                                 <Trash2Icon className="w-4 h-4" />
                             </button>
                         </div>
                         <div className="flex items-start justify-between">
                             <div>
-                                <p className="text-lg font-semibold text-white">{account.name}</p>
-                                <p className="text-sm text-gray-400 capitalize">{account.type.replace('_', ' ')}</p>
+                                <p className="text-lg font-semibold text-foreground">{account.name}</p>
+                                <p className="text-sm text-muted-foreground capitalize">{account.type.replace('_', ' ')}</p>
                             </div>
-                            <div className="p-2 bg-[#192134] rounded-lg">{accountIcons[account.type]}</div>
+                            <div className="p-2 bg-secondary rounded-lg">{accountIcons[account.type]}</div>
                         </div>
                         <div className="mt-4">
                             {account.type === AccountType.CREDIT_CARD ? (
                                 <>
-                                    <p className="text-sm text-gray-500">Limite do Cartão</p>
-                                    <p className="text-2xl font-bold text-white">
+                                    <p className="text-sm text-muted-foreground">Limite do Cartão</p>
+                                    <p className="text-2xl font-bold text-foreground">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.limit || 0)}
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="text-sm text-gray-500">Saldo Atual</p>
-                                    <p className={`text-2xl font-bold ${account.balance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    <p className="text-sm text-muted-foreground">Saldo Atual</p>
+                                    <p className={`text-2xl font-bold ${account.balance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(account.balance)}
                                     </p>
                                 </>
@@ -274,7 +281,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({ accounts, onAddAccou
                         </div>
                     </div>
                 ))}
-                 <button onClick={onAddAccount} className="border-2 border-dashed border-gray-600 hover:border-[#6464FF] hover:text-[#6464FF] text-gray-500 rounded-xl flex flex-col items-center justify-center p-6 transition-all duration-300 group">
+                 <button onClick={onAddAccount} className="border-2 border-dashed border-border hover:border-primary hover:text-primary text-muted-foreground rounded-xl flex flex-col items-center justify-center p-6 transition-all duration-300 group">
                     <PlusCircleIcon className="h-10 w-10 mb-2 group-hover:scale-110 transition-transform"/>
                     <span className="font-semibold">Adicionar Conta</span>
                 </button>
@@ -312,21 +319,21 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({ budgets, transactions,
     
     return (
         <PageWrapper title="Orçamentos">
-            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddBudget}>Criar Orçamento</ActionButton></div>
+            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddBudget} variant="primary">Criar Orçamento</ActionButton></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {budgetDetails.map(item => {
                     const percentage = Math.min((item.spent / item.amount) * 100, 100);
                     return (
-                        <div key={item.id} className="bg-[#10192A] p-6 rounded-xl shadow-lg">
+                        <div key={item.id} className="bg-card p-6 rounded-xl border border-border shadow-sm">
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-semibold text-white">{item.categoryName}</h3>
-                                <span className="text-sm text-gray-400">{percentage.toFixed(0)}%</span>
+                                <h3 className="font-semibold text-foreground">{item.categoryName}</h3>
+                                <span className="text-sm text-muted-foreground">{percentage.toFixed(0)}%</span>
                             </div>
-                            <div className="w-full bg-[#192134] rounded-full h-3 mb-2">
-                                <div className="h-3 rounded-full" style={{ width: `${percentage}%`, backgroundColor: item.color }}></div>
+                            <div className="w-full bg-secondary rounded-full h-2.5 mb-2">
+                                <div className="h-2.5 rounded-full" style={{ width: `${percentage}%`, backgroundColor: item.color }}></div>
                             </div>
-                            <div className="text-right text-sm text-gray-300">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.spent)} / {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
+                            <div className="text-right text-sm text-muted-foreground">
+                                <span className="text-foreground font-medium">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.spent)}</span> / {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
                             </div>
                         </div>
                     );
@@ -363,7 +370,6 @@ export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, ac
 
     const getTransactionsForInvoice = (invoice: CreditInvoice) => {
         const dueDate = new Date(invoice.dueDate);
-        // Invoice month is the month before the due date
         const invoiceDate = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth() - 1, 1));
         const invoiceMonth = invoiceDate.getUTCMonth();
         const invoiceYear = invoiceDate.getUTCFullYear();
@@ -378,7 +384,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, ac
     return (
         <PageWrapper title="Cartões de Crédito">
             {creditCardAccounts.length === 0 ? (
-                <div className="bg-[#10192A] p-6 rounded-xl shadow-lg text-center text-gray-400">
+                <div className="bg-card border border-border p-6 rounded-xl shadow-sm text-center text-muted-foreground">
                     <p>Nenhum cartão de crédito cadastrado.</p>
                     <p className="text-sm mt-2">Adicione um na página 'Contas' para vê-lo aqui.</p>
                 </div>
@@ -389,65 +395,65 @@ export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, ac
                             .filter(inv => inv.cardId === card.id)
                             .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
                         const currentInvoice = cardInvoices.find(inv => inv.status === 'Aberta');
-                        const statusColor: { [key: string]: string } = { 'Aberta': 'text-yellow-400', 'Paga': 'text-green-400', 'Fechada': 'text-red-400' };
+                        const statusColor: { [key: string]: string } = { 'Aberta': 'text-yellow-500', 'Paga': 'text-green-500', 'Fechada': 'text-red-500' };
 
                         return (
-                            <div key={card.id} className="bg-[#10192A] p-6 rounded-xl shadow-lg">
-                                <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-700">
+                            <div key={card.id} className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                                <div className="flex items-center justify-between mb-6 pb-6 border-b border-border">
                                     <div className="flex items-center">
-                                        <CreditCardIcon className="h-10 w-10 text-purple-400" />
+                                        <CreditCardIcon className="h-10 w-10 text-primary" />
                                         <div className="ml-4">
-                                            <h2 className="text-xl font-bold text-white">{card.name}</h2>
-                                            <p className="text-sm text-gray-400">Limite: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limit || 0)}</p>
+                                            <h2 className="text-xl font-bold text-foreground">{card.name}</h2>
+                                            <p className="text-sm text-muted-foreground">Limite: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limit || 0)}</p>
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-gray-400">Fatura Atual</p>
-                                        <p className="text-xl font-semibold text-yellow-400">
+                                        <p className="text-sm text-muted-foreground">Fatura Atual</p>
+                                        <p className="text-xl font-semibold text-yellow-500">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentInvoice?.amount || 0)}
                                         </p>
                                     </div>
                                 </div>
-                                <h3 className="font-semibold mb-4 text-white">Últimas Faturas</h3>
+                                <h3 className="font-semibold mb-4 text-foreground">Últimas Faturas</h3>
                                 {cardInvoices.length > 0 ? (
-                                    <ul className="space-y-1">
+                                    <ul className="space-y-2">
                                         {cardInvoices.map(invoice => {
                                             const invoiceTransactions = getTransactionsForInvoice(invoice);
                                             const isExpanded = expandedInvoices.has(invoice.id);
                                             return (
                                             <React.Fragment key={invoice.id}>
-                                                <li className="flex justify-between items-center p-3 bg-[#192134] rounded-lg cursor-pointer hover:bg-[#1E293B]" onClick={() => toggleInvoiceDetails(invoice.id)}>
+                                                <li className="flex justify-between items-center p-3 bg-secondary rounded-lg cursor-pointer hover:bg-accent" onClick={() => toggleInvoiceDetails(invoice.id)}>
                                                     <div className='flex items-center'>
-                                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 mr-3 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                        <ChevronDownIcon className={`h-5 w-5 text-muted-foreground mr-3 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                                                         <div>
-                                                            <span className="font-semibold text-white">{invoice.month}</span>
-                                                            <span className={`ml-3 text-sm font-bold ${statusColor[invoice.status]}`}>{invoice.status}</span>
+                                                            <span className="font-semibold text-foreground">{invoice.month}</span>
+                                                            <span className={`ml-3 text-xs font-bold ${statusColor[invoice.status]}`}>{invoice.status.toUpperCase()}</span>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-semibold text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(invoice.amount)}</p>
-                                                        <p className="text-xs text-gray-500">Venc. {new Date(invoice.dueDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
+                                                        <p className="font-semibold text-foreground">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(invoice.amount)}</p>
+                                                        <p className="text-xs text-muted-foreground">Venc. {new Date(invoice.dueDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
                                                     </div>
                                                     {invoice.status !== 'Paga' && (
-                                                        <button onClick={(e) => { e.stopPropagation(); onPayInvoice(invoice); }} className="bg-[#6464FF] text-white px-3 py-1 text-sm rounded-md hover:bg-indigo-500 transition-colors ml-4">Pagar Fatura</button>
+                                                        <button onClick={(e) => { e.stopPropagation(); onPayInvoice(invoice); }} className="bg-primary text-primary-foreground px-3 py-1 text-sm rounded-md hover:bg-primary/90 transition-colors ml-4">Pagar</button>
                                                     )}
                                                 </li>
                                                 {isExpanded && (
-                                                    <div className='pl-8 pr-4 pb-2 pt-1 animate-fade-in-down'>
+                                                    <div className='pl-8 pr-4 pb-2 pt-1 animate-element'>
                                                         {invoiceTransactions.length > 0 ? (
                                                             <table className='w-full text-sm'>
                                                                 <tbody>
                                                                 {invoiceTransactions.map(tx => (
-                                                                    <tr key={tx.id} className='border-b border-gray-700/50'>
-                                                                        <td className='py-2 pr-2 text-gray-400'>{new Date(tx.date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: 'short'})}</td>
-                                                                        <td className='py-2 px-2 text-white'>{tx.description}</td>
-                                                                        <td className='py-2 pl-2 text-right text-red-400'>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}</td>
+                                                                    <tr key={tx.id} className='border-b border-border/50'>
+                                                                        <td className='py-2 pr-2 text-muted-foreground'>{new Date(tx.date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: 'short'})}</td>
+                                                                        <td className='py-2 px-2 text-foreground'>{tx.description}</td>
+                                                                        <td className='py-2 pl-2 text-right text-red-500'>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}</td>
                                                                     </tr>
                                                                 ))}
                                                                 </tbody>
                                                             </table>
                                                         ) : (
-                                                            <p className='text-center text-gray-500 text-sm py-2'>Nenhum débito nesta fatura.</p>
+                                                            <p className='text-center text-muted-foreground text-sm py-2'>Nenhum débito nesta fatura.</p>
                                                         )}
                                                     </div>
                                                 )}
@@ -455,7 +461,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({ invoices, onPayInvoice, ac
                                         )})}
                                     </ul>
                                 ) : (
-                                     <p className="text-center text-gray-500 py-4">Nenhuma fatura encontrada para este cartão.</p>
+                                     <p className="text-center text-muted-foreground py-4">Nenhuma fatura encontrada para este cartão.</p>
                                 )}
                             </div>
                         );
@@ -512,21 +518,21 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ transactions }) => {
 
     return (
         <PageWrapper title="Relatórios">
-            <div className="bg-[#10192A] p-4 rounded-xl shadow-lg mb-6">
+            <div className="bg-card border border-border p-4 rounded-xl shadow-sm mb-6">
                 <div className="flex items-center space-x-4">
-                    <label className="text-sm font-medium text-gray-400">Período:</label>
-                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white" />
-                    <span className="text-gray-400">até</span>
-                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-[#1E293B] border border-gray-600 rounded-md p-2 text-white" />
+                    <label className="text-sm font-medium text-muted-foreground">Período:</label>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-secondary border border-border rounded-md p-2 text-foreground" />
+                    <span className="text-muted-foreground">até</span>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-secondary border border-border rounded-md p-2 text-foreground" />
                 </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#10192A] p-6 rounded-xl shadow-lg">
-                    <h2 className="text-lg font-semibold text-white mb-4">Despesas por Categoria</h2>
+                <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                    <h2 className="text-lg font-semibold text-foreground mb-4">Despesas por Categoria</h2>
                     <CategoryPieChart data={filteredTransactions} />
                 </div>
-                <div className="bg-[#10192A] p-6 rounded-xl shadow-lg">
-                    <h2 className="text-lg font-semibold text-white mb-4">Receitas vs Despesas</h2>
+                <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+                    <h2 className="text-lg font-semibold text-foreground mb-4">Receitas vs Despesas</h2>
                     <MonthlySummaryBarChart data={monthlySummaryData} />
                 </div>
             </div>
@@ -546,19 +552,19 @@ interface RulesPageProps {
 export const RulesPage: React.FC<RulesPageProps> = ({ rules, onAddRule, onToggleRule, onDeleteRule }) => {
     return (
         <PageWrapper title="Regras de Automação">
-            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddRule}>Criar Regra</ActionButton></div>
-            <div className="bg-[#10192A] rounded-xl shadow-lg overflow-hidden">
-                <table className="w-full text-sm text-left text-gray-400">
-                    <thead className="text-xs text-gray-300 uppercase bg-[#192134]"><tr><th className="px-6 py-3">Nome da Regra</th><th className="px-6 py-3">Condições</th><th className="px-6 py-3 text-center">Status</th><th className="px-6 py-3 text-center">Ações</th></tr></thead>
+            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddRule} variant="primary">Criar Regra</ActionButton></div>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <table className="w-full text-sm text-left text-muted-foreground">
+                    <thead className="text-xs text-muted-foreground uppercase bg-secondary"><tr><th className="px-6 py-3 font-medium">Nome da Regra</th><th className="px-6 py-3 font-medium">Condições</th><th className="px-6 py-3 text-center font-medium">Status</th><th className="px-6 py-3 text-center font-medium">Ações</th></tr></thead>
                     <tbody>
                         {rules.map(rule => (
-                            <tr key={rule.id} className="border-b border-[#192134] hover:bg-[#192134]/50">
-                                <td className="px-6 py-4 font-medium text-white">{rule.name}</td>
+                            <tr key={rule.id} className="border-b border-border hover:bg-secondary">
+                                <td className="px-6 py-4 font-medium text-foreground">{rule.name}</td>
                                 <td className="px-6 py-4">{rule.conditions}</td>
                                 <td className="px-6 py-4 text-center">
-                                    <button onClick={() => onToggleRule(rule)}>{rule.enabled ? <ToggleRightIcon className="h-6 w-6 text-green-500"/> : <ToggleLeftIcon className="h-6 w-6 text-gray-600"/>}</button>
+                                    <button onClick={() => onToggleRule(rule)}>{rule.enabled ? <ToggleRightIcon className="h-6 w-6 text-green-500"/> : <ToggleLeftIcon className="h-6 w-6 text-muted-foreground"/>}</button>
                                 </td>
-                                <td className="px-6 py-4"><div className="flex items-center justify-center space-x-3"><button className="text-gray-400 hover:text-white"><EditIcon className="h-5 w-5" /></button><button onClick={() => onDeleteRule(rule.id)} className="text-gray-400 hover:text-red-500"><Trash2Icon className="h-5 w-5" /></button></div></td>
+                                <td className="px-6 py-4"><div className="flex items-center justify-center space-x-3"><button className="text-muted-foreground hover:text-foreground"><EditIcon className="h-4 w-4" /></button><button onClick={() => onDeleteRule(rule.id)} className="text-muted-foreground hover:text-red-500"><Trash2Icon className="h-4 w-4" /></button></div></td>
                             </tr>
                         ))}
                     </tbody>
@@ -579,20 +585,20 @@ interface CategoriesPageProps {
 export const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, onAddCategory, onDeleteCategory }) => {
     return (
         <PageWrapper title="Categorias">
-            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddCategory}>Adicionar Categoria</ActionButton></div>
-            <div className="bg-[#10192A] rounded-xl shadow-lg overflow-hidden">
-                <table className="w-full text-sm text-left text-gray-400">
-                    <thead className="text-xs text-gray-300 uppercase bg-[#192134]">
+            <div className="flex justify-end mb-4"><ActionButton icon={PlusCircleIcon} onClick={onAddCategory} variant="primary">Adicionar Categoria</ActionButton></div>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <table className="w-full text-sm text-left text-muted-foreground">
+                    <thead className="text-xs text-muted-foreground uppercase bg-secondary">
                         <tr>
-                            <th className="px-6 py-3">Nome</th>
-                            <th className="px-6 py-3">Tipo</th>
-                            <th className="px-6 py-3 text-center">Ações</th>
+                            <th className="px-6 py-3 font-medium">Nome</th>
+                            <th className="px-6 py-3 font-medium">Tipo</th>
+                            <th className="px-6 py-3 text-center font-medium">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {categories.map(cat => (
-                            <tr key={cat.id} className="border-b border-[#192134] hover:bg-[#192134]/50">
-                                <td className="px-6 py-4 font-medium text-white">
+                            <tr key={cat.id} className="border-b border-border hover:bg-secondary">
+                                <td className="px-6 py-4 font-medium text-foreground">
                                     <div className="flex items-center">
                                         <span className="h-3 w-3 rounded-full mr-3" style={{ backgroundColor: cat.color }}></span>
                                         {cat.name}
@@ -600,15 +606,15 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({ categories, onAd
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                        cat.type === CategoryType.INCOME ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                        cat.type === CategoryType.INCOME ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
                                     }`}>
                                         {cat.type === CategoryType.INCOME ? 'Receita' : 'Despesa'}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center justify-center space-x-3">
-                                        <button className="text-gray-400 hover:text-white"><EditIcon className="h-5 w-5" /></button>
-                                        <button onClick={() => onDeleteCategory(cat.id)} className="text-gray-400 hover:text-red-500"><Trash2Icon className="h-5 w-5" /></button>
+                                        <button className="text-muted-foreground hover:text-foreground"><EditIcon className="h-4 w-4" /></button>
+                                        <button onClick={() => onDeleteCategory(cat.id)} className="text-muted-foreground hover:text-red-500"><Trash2Icon className="h-4 w-4" /></button>
                                     </div>
                                 </td>
                             </tr>
@@ -628,8 +634,10 @@ interface SettingsPageProps {
     user: User;
     profile: Profile | null;
     onProfileUpdate: () => void;
+    theme: string;
+    setTheme: (theme: string) => void;
 }
-export const SettingsPage: React.FC<SettingsPageProps> = ({ user, profile, onProfileUpdate }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ user, profile, onProfileUpdate, theme, setTheme }) => {
     const { addNotification } = useNotifications();
     const [fullName, setFullName] = useState(profile?.full_name || '');
     const [newPassword, setNewPassword] = useState('');
@@ -677,65 +685,76 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, profile, onPro
     
     return (
         <PageWrapper title="Configurações">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Informações do Perfil</h3>
+            <div className="space-y-8">
+                <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <h3 className="text-lg font-semibold border-b border-border pb-4 mb-6 text-foreground">Aparência</h3>
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-muted-foreground">Tema</label>
+                        <div className="flex items-center gap-2 rounded-lg bg-secondary p-1">
+                            <button onClick={() => setTheme('light')} className={`p-2 rounded-md transition-colors ${theme === 'light' ? 'bg-background shadow-sm' : 'hover:bg-accent'}`}><SunIcon className="w-5 h-5"/></button>
+                            <button onClick={() => setTheme('dark')} className={`p-2 rounded-md transition-colors ${theme === 'dark' ? 'bg-background shadow-sm' : 'hover:bg-accent'}`}><MoonIcon className="w-5 h-5"/></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <h3 className="text-lg font-semibold border-b border-border pb-4 mb-6 text-foreground">Informações do Perfil</h3>
                     <form onSubmit={handleProfileUpdate} className="space-y-4">
                          <div>
-                            <label htmlFor="fullName" className="block text-sm font-medium text-gray-400 mb-1">Nome Completo</label>
+                            <label htmlFor="fullName" className="block text-sm font-medium text-muted-foreground mb-1">Nome Completo</label>
                             <input
                                 id="fullName"
                                 type="text"
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
-                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
                             />
                         </div>
                          <div>
-                            <label className="text-sm font-medium text-gray-400">Email</label>
-                            <p className="text-white mt-1 p-3 bg-[#192134] rounded-md text-gray-400">{user.email}</p>
+                            <label className="text-sm font-medium text-muted-foreground">Email</label>
+                            <p className="text-foreground mt-1 p-3 bg-secondary rounded-md text-muted-foreground">{user.email}</p>
                         </div>
                          <div className="pt-2 flex justify-end">
                             <button
                                 type="submit"
                                 disabled={loading.profile}
-                                className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                                className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading.profile ? 'Salvando...' : 'Salvar Alterações'}
                             </button>
                         </div>
                     </form>
                 </div>
-                <div className="bg-[#10192A] rounded-xl shadow-lg p-6">
-                    <h3 className="text-lg font-semibold border-b border-gray-700 pb-3 mb-4 text-white">Alterar Senha</h3>
+                <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                    <h3 className="text-lg font-semibold border-b border-border pb-4 mb-6 text-foreground">Alterar Senha</h3>
                      <form onSubmit={handlePasswordUpdate} className="space-y-4">
                         <div>
-                            <label htmlFor="new-password"className="block text-sm font-medium text-gray-400 mb-1">Nova Senha</label>
+                            <label htmlFor="new-password"className="block text-sm font-medium text-muted-foreground mb-1">Nova Senha</label>
                             <input
                                 type="password"
                                 id="new-password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 required
-                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
                             />
                         </div>
                         <div>
-                            <label htmlFor="confirm-password"className="block text-sm font-medium text-gray-400 mb-1">Confirmar Nova Senha</label>
+                            <label htmlFor="confirm-password"className="block text-sm font-medium text-muted-foreground mb-1">Confirmar Nova Senha</label>
                             <input
                                 type="password"
                                 id="confirm-password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 required
-                                className="w-full bg-[#1E293B] border border-gray-600 rounded-md p-3 text-white"
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
                             />
                         </div>
                         <div className="pt-2 flex justify-end">
                             <button
                                 type="submit"
                                 disabled={loading.password}
-                                className="px-6 py-2 rounded-lg bg-[#6464FF] hover:bg-indigo-500 font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed"
+                                className="px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading.password ? 'Salvando...' : 'Salvar Nova Senha'}
                             </button>
