@@ -56,7 +56,7 @@ const testimonials: Testimonial[] = [
     }
 ];
 
-const loginImageUrl = 'https://i.ibb.co/7thW9pyx/Gemini-Generated-Image-gumbxxgumbxxgumb.png';
+const loginImageUrl = 'https://i.ibb.co/V0B3HKSY/Gemini-Generated-Image-2n4jof2n4jof2n4j-1.png';
 
 export const AuthPage: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);

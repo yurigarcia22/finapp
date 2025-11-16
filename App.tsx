@@ -139,7 +139,6 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
 
       let finalCategoriesData = categoriesData || [];
       if (!categoriesError && categoriesData && categoriesData.length === 0) {
-        // FIX: Destructure `count` directly from the Supabase response, not from the `data` property.
         const { count: txCount, error: txCheckError } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
         const hasTransactions = !txCheckError && (txCount ?? 0) > 0;
         

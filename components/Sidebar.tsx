@@ -40,7 +40,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const secondaryNavigation = [{ name: 'Configurações', icon: SettingsIcon }];
 
-  // ❗ Mantive exatamente as URLs que você passou
   const lightLogoUrl = 'https://i.ibb.co/hx9bHhZg/LOGOTIPO-V3.png';
   const darkLogoUrl = 'https://i.ibb.co/MD2j2Lq6/LOGOTIPO-V4.png';
 
@@ -49,12 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex flex-col w-64">
         <div className="flex flex-col flex-grow bg-card border-r border-border pt-5 pb-4 overflow-y-auto">
 
-          {/* Logo com tamanho ajustado, sem classe inválida */}
           <div className="flex items-center justify-center flex-shrink-0 px-4 py-6">
             <img
               src={theme === 'dark' ? darkLogoUrl : lightLogoUrl}
               alt="NG Fin Logo"
-              className="h-[96px] w-auto"
+              className="h-24 w-auto"
             />
           </div>
 

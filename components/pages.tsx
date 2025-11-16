@@ -53,7 +53,6 @@ const translateAccountType = (type: AccountType): string => {
         case AccountType.INVESTMENT: return 'Investimento';
         case AccountType.CREDIT_CARD: return 'Cartão de Crédito';
         case AccountType.LOAN: return 'Empréstimo';
-        // FIX: Cast `type` to string to avoid TypeScript error with exhaustive switch.
         default: return (type as string).replace('_', ' ');
     }
 };

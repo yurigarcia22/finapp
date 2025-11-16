@@ -11,13 +11,10 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-// FIX: Define props with an interface for clarity and to help TypeScript's type inference.
 interface NotificationProviderProps {
   children: ReactNode;
 }
 
-// Fix: Explicitly typing as React.FC to resolve a subtle TypeScript inference error
-// where the 'children' prop was not being detected at the usage site in App.tsx.
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
