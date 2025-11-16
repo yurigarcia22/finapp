@@ -131,3 +131,8 @@ export interface MonthlyFixedExpense {
   transaction_id: string | null;
   fixedExpense?: FixedExpense;
 }
+
+export interface OverdueData {
+  overdueFixedExpenses: MonthlyFixedExpense[];
+  overdueInvoices: CreditInvoice[];
+}

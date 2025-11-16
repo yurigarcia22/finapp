@@ -15,7 +15,8 @@ import {
     Rule,
     Profile,
     FixedExpense,
-    MonthlyFixedExpense
+    MonthlyFixedExpense,
+    OverdueData
 } from '../types';
 import {
     FilterIcon,
@@ -36,7 +37,8 @@ import {
     ClipboardListIcon,
     XIcon,
     ChevronLeftIcon,
-    ChevronRightIcon
+    ChevronRightIcon,
+    AlertTriangleIcon
 } from './icons';
 import { CategoryPieChart } from './charts/CategoryPieChart';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
@@ -625,6 +627,7 @@ interface CardsPageProps {
     onAddCard: () => void;
     onEditCard: (account: Account) => void;
     onDeleteCard: (accountId: string) => void;
+    overdueData: OverdueData;
 }
 
 export const CardsPage: React.FC<CardsPageProps> = ({
@@ -635,10 +638,16 @@ export const CardsPage: React.FC<CardsPageProps> = ({
     onAddCard,
     onEditCard,
     onDeleteCard,
+    overdueData
 }) => {
     const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
     const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const { overdueInvoices } = overdueData;
+    const overdueInvoicesCount = overdueInvoices.length;
+    const overdueInvoicesTotal = overdueInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const overdueInvoiceIds = useMemo(() => new Set(overdueInvoices.map(inv => inv.id)), [overdueInvoices]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -691,6 +700,20 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                     Adicionar Cartão
                 </ActionButton>
             </div>
+
+            {overdueInvoicesCount > 0 && (
+                 <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 px-6 py-4 rounded-xl flex items-center gap-4 animate-element">
+                    <AlertTriangleIcon className="h-6 w-6 text-red-500 flex-shrink-0" />
+                    <div>
+                        <h3 className="font-bold text-red-600 dark:text-red-300">Alerta de Vencimento</h3>
+                        <p className="text-sm">
+                            Você tem <strong>{overdueInvoicesCount} {overdueInvoicesCount > 1 ? 'faturas vencidas' : 'fatura vencida'}</strong>, totalizando{' '}
+                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(overdueInvoicesTotal)}</strong>.
+                        </p>
+                    </div>
+                 </div>
+            )}
+
             {creditCardAccounts.length === 0 ? (
                 <div className="bg-card border border-border p-6 rounded-xl shadow-sm text-center text-muted-foreground">
                     <p>Nenhum cartão de crédito cadastrado.</p>
@@ -711,10 +734,11 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                         const currentInvoice = cardInvoices.find(
                             inv => inv.status === 'Aberta'
                         );
-                        const statusColor: { [key: string]: string } = {
+                         const statusColor: { [key: string]: string } = {
                             Aberta: 'text-yellow-500',
                             Paga: 'text-green-500',
-                            Fechada: 'text-red-500'
+                            Fechada: 'text-red-500',
+                            Vencida: 'text-red-500 font-bold',
                         };
 
                         return (
@@ -782,6 +806,8 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                             const invoiceTransactions =
                                                 getTransactionsForInvoice(invoice);
                                             const isExpanded = expandedInvoices.has(invoice.id);
+                                            const isOverdue = overdueInvoiceIds.has(invoice.id);
+                                            const currentStatus = isOverdue ? 'Vencida' : invoice.status;
                                             return (
                                                 <React.Fragment key={invoice.id}>
                                                     <li
@@ -803,9 +829,9 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                                                     {invoice.month}
                                                                 </span>
                                                                 <span
-                                                                    className={`ml-3 text-xs font-bold ${statusColor[invoice.status]}`}
+                                                                    className={`ml-3 text-xs font-bold ${statusColor[currentStatus]}`}
                                                                 >
-                                                                    {invoice.status.toUpperCase()}
+                                                                    {currentStatus.toUpperCase()}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -816,7 +842,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                                                     currency: 'BRL'
                                                                 }).format(invoice.amount)}
                                                             </p>
-                                                            <p className="text-xs text-muted-foreground">
+                                                            <p className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
                                                                 Venc.{' '}
                                                                 {new Date(
                                                                     invoice.dueDate
@@ -1400,6 +1426,7 @@ interface FixedExpensesPageProps {
     onDataNeedsRefresh: () => void;
     onSaveOrUpdateFixedExpense: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => void;
     onDeleteFixedExpense: (monthlyExpense: MonthlyFixedExpense, mode: 'this' | 'all') => Promise<void>;
+    overdueData: OverdueData;
 }
 
 // Portal para garantir que o modal fique sempre acima de tudo e centralizado
@@ -1732,7 +1759,8 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     onSaveTransaction,
     onDataNeedsRefresh,
     onSaveOrUpdateFixedExpense,
-    onDeleteFixedExpense
+    onDeleteFixedExpense,
+    overdueData
 }) => {
     const { addNotification } = useNotifications();
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -1743,6 +1771,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     const [deletingExpense, setDeletingExpense] = useState<MonthlyFixedExpense | null>(null);
     const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const { overdueFixedExpenses } = overdueData;
     
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1824,6 +1853,14 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                     new Date(a.due_date).getDate() - new Date(b.due_date).getDate()
             );
     }, [monthlyFixedExpenses, currentMonthStr]);
+
+    const overdueForCurrentMonth = useMemo(() => {
+        return overdueFixedExpenses.filter(ofe => ofe.month === currentMonthStr);
+    }, [overdueFixedExpenses, currentMonthStr]);
+    
+    const overdueIdsForCurrentMonth = useMemo(() => new Set(overdueForCurrentMonth.map(exp => exp.id)), [overdueForCurrentMonth]);
+
+    const overdueTotalAmount = overdueForCurrentMonth.reduce((sum, exp) => sum + exp.amount, 0);
 
     const handleOpenPayModal = (expense: MonthlyFixedExpense) => {
         setSelectedExpense(expense);
@@ -1950,6 +1987,19 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                 </ActionButton>
             </div>
             
+            {overdueForCurrentMonth.length > 0 && (
+                <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 px-6 py-4 rounded-xl flex items-center gap-4 animate-element">
+                    <AlertTriangleIcon className="h-6 w-6 text-red-500 flex-shrink-0" />
+                    <div>
+                        <h3 className="font-bold text-red-600 dark:text-red-300">Alerta de Vencimento</h3>
+                        <p className="text-sm">
+                            Você tem <strong>{overdueForCurrentMonth.length} {overdueForCurrentMonth.length > 1 ? 'despesas vencidas' : 'despesa vencida'}</strong> este mês, totalizando{' '}
+                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(overdueTotalAmount)}</strong>.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-card rounded-xl border border-border shadow-sm">
                 <div className={dropdownOpenId ? 'overflow-visible' : 'overflow-x-auto'}>
                     <table className="w-full text-sm text-left text-muted-foreground">
@@ -1969,8 +2019,10 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                         Nenhuma despesa para este mês.
                                     </td>
                                 </tr>
-                            ) : expensesForCurrentMonth.map(item => (
-                                <tr key={item.id} className="border-b border-border hover:bg-secondary">
+                            ) : expensesForCurrentMonth.map(item => {
+                                const isOverdue = overdueIdsForCurrentMonth.has(item.id);
+                                return (
+                                <tr key={item.id} className={`border-b border-border hover:bg-secondary ${isOverdue ? 'bg-red-500/5' : ''}`}>
                                     <td className="px-6 py-4 font-medium text-foreground">
                                         <div>
                                             <span>{item.fixedExpense?.name}</span>
@@ -1980,19 +2032,21 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
+                                    <td className={`px-6 py-4 ${isOverdue ? 'text-red-500 font-semibold' : ''}`}>
                                         {new Date(item.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                     </td>
                                     <td className="px-6 py-4 font-semibold text-right text-foreground">
                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
-                                        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                                         <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
                                             item.status === 'Pago'
                                                 ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
-                                                : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                                : isOverdue 
+                                                    ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
+                                                    : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
                                         }`}>
-                                            {item.status}
+                                            {isOverdue ? 'Vencida' : item.status}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
@@ -2025,7 +2079,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         </tbody>
                     </table>
                 </div>

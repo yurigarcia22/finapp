@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -36,7 +36,8 @@ import {
   Rule,
   Profile,
   FixedExpense,
-  MonthlyFixedExpense
+  MonthlyFixedExpense,
+  OverdueData
 } from './types';
 import { supabase } from './supabase';
 import { AuthPage } from './components/AuthPage';
@@ -276,6 +277,23 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const overdueData = useMemo<OverdueData>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    
+    const overdueFixedExpenses = monthlyFixedExpenses.filter(
+      (expense) =>
+        expense.status === 'Não pago' && new Date(expense.due_date) < today
+    );
+
+    const overdueInvoices = invoices.filter(
+      (invoice) =>
+        invoice.status !== 'Paga' && new Date(invoice.dueDate) < today
+    );
+
+    return { overdueFixedExpenses, overdueInvoices };
+  }, [monthlyFixedExpenses, invoices]);
 
   // ==================================================================================
   // FUNÇÕES HANDLER PARA MODIFICAR O ESTADO
@@ -943,6 +961,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             categories={categories}
             budgets={budgets}
             invoices={invoices}
+            overdueData={overdueData}
           />
         );
       case 'Transações':
@@ -964,6 +983,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
                 onDataNeedsRefresh={fetchData}
                 onSaveOrUpdateFixedExpense={handleSaveOrUpdateFixedExpense}
                 onDeleteFixedExpense={handleDeleteFixedExpense}
+                overdueData={overdueData}
             />
         );
       case 'Orçamentos':
@@ -985,6 +1005,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             onAddCard={() => openAddAccountModal(AccountType.CREDIT_CARD)}
             onEditCard={handleEditAccount}
             onDeleteCard={handleDeleteAccount}
+            overdueData={overdueData}
           />
         );
       case 'Contas':
@@ -1034,6 +1055,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             categories={categories}
             budgets={budgets}
             invoices={invoices}
+            overdueData={overdueData}
           />
         );
     }

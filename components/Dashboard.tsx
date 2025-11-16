@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { KpiCard } from './KpiCard';
 import { CategoryPieChart } from './charts/CategoryPieChart';
-import { KpiData, Transaction, Account, AccountType, MonthlySummaryData, Budget, Category, CreditInvoice, CategoryType } from '../types';
-import { MoreVerticalIcon, CreditCardIcon, ChevronDownIcon } from './icons';
+import { KpiData, Transaction, Account, AccountType, MonthlySummaryData, Budget, Category, CreditInvoice, CategoryType, OverdueData } from '../types';
+import { MoreVerticalIcon, CreditCardIcon, ChevronDownIcon, AlertTriangleIcon } from './icons';
 import { MonthlySummaryBarChart } from './charts/MonthlySummaryBarChart';
 
 interface DashboardProps {
@@ -11,6 +11,7 @@ interface DashboardProps {
     budgets: Budget[];
     categories: Category[];
     invoices: CreditInvoice[];
+    overdueData: OverdueData;
 }
 
 const translateAccountType = (type: AccountType): string => {
@@ -124,8 +125,44 @@ const PeriodFilter: React.FC<{ value: string; onChange: (value: string) => void;
     );
 };
 
+const OverdueAlerts: React.FC<{ overdueData: OverdueData }> = ({ overdueData }) => {
+    const { overdueFixedExpenses, overdueInvoices } = overdueData;
+    const totalOverdue = overdueFixedExpenses.length + overdueInvoices.length;
 
-export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, budgets, categories, invoices }) => {
+    if (totalOverdue === 0) {
+        return null;
+    }
+
+    const totalFixedAmount = overdueFixedExpenses.reduce((sum, item) => sum + item.amount, 0);
+    const totalInvoiceAmount = overdueInvoices.reduce((sum, item) => sum + item.amount, 0);
+
+    return (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 px-6 py-4 rounded-xl flex items-start gap-4 animate-element">
+            <AlertTriangleIcon className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+                <h3 className="font-bold text-lg text-red-600 dark:text-red-300">Avisos Importantes!</h3>
+                <ul className="list-disc list-inside mt-2 text-sm space-y-1">
+                    {overdueInvoices.length > 0 && (
+                        <li>
+                            Você tem <strong>{overdueInvoices.length} {overdueInvoices.length > 1 ? 'faturas vencidas' : 'fatura vencida'}</strong>, totalizando{' '}
+                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalInvoiceAmount)}</strong>.
+                        </li>
+                    )}
+                     {overdueFixedExpenses.length > 0 && (
+                        <li>
+                            Você tem <strong>{overdueFixedExpenses.length} {overdueFixedExpenses.length > 1 ? 'despesas fixas vencidas' : 'despesa fixa vencida'}</strong>, totalizando{' '}
+                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalFixedAmount)}</strong>.
+                        </li>
+                    )}
+                </ul>
+                 <p className="text-xs mt-3">Acesse as páginas de <span className="font-semibold underline">Cartões</span> e <span className="font-semibold underline">Fixas</span> para regularizar.</p>
+            </div>
+        </div>
+    );
+};
+
+
+export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, budgets, categories, invoices, overdueData }) => {
     const [period, setPeriod] = useState('thisMonth');
     
     const filteredTransactions = useMemo(() => {
@@ -260,6 +297,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
                 <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
                 <PeriodFilter value={period} onChange={setPeriod} />
             </div>
+
+            <OverdueAlerts overdueData={overdueData} />
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {kpiData.map((item) => <KpiCard key={item.title} item={item} />)}
