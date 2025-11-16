@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
@@ -40,6 +41,23 @@ import {
 import { supabase } from './supabase';
 import { AuthPage } from './components/AuthPage';
 
+const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'user_id'>[] = [
+  // Despesas
+  { name: 'Moradia', type: CategoryType.EXPENSE, color: '#F97316', icon: '🏡' },
+  { name: 'Supermercado', type: CategoryType.EXPENSE, color: '#10B981', icon: '🛒' },
+  { name: 'Transporte', type: CategoryType.EXPENSE, color: '#3B82F6', icon: '🚗' },
+  { name: 'Alimentação', type: CategoryType.EXPENSE, color: '#E11D48', icon: '🍔' },
+  { name: 'Saúde', type: CategoryType.EXPENSE, color: '#EF4444', icon: '💊' },
+  { name: 'Lazer', type: CategoryType.EXPENSE, color: ' #8B5CF6', icon: '👕' },
+  { name: 'Contas', type: CategoryType.EXPENSE, color: '#F59E0B', icon: '📞' },
+  { name: 'Educação', type: CategoryType.EXPENSE, color: '#0EA5E9', icon: '🎓' },
+  { name: 'Outros', type: CategoryType.EXPENSE, color: '#64748B', icon: '💸' },
+  // Receitas
+  { name: 'Salário', type: CategoryType.INCOME, color: '#22C55E', icon: '💼' },
+  { name: 'Renda Extra', type: CategoryType.INCOME, color: '#84CC16', icon: '🎁' },
+  { name: 'Investimentos', type: CategoryType.INCOME, color: '#14B8A6', icon: '📈' },
+];
+
 interface AppContentProps {
   session: Session;
   profile: Profile | null;
@@ -77,6 +95,21 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   const [isCategoryModalOpen, setCategoryModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<CreditInvoice | null>(null);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  const seedDefaultCategories = useCallback(async (userId: string) => {
+    const { data, error } = await supabase.from('categories').insert(
+        DEFAULT_CATEGORIES.map(c => ({ ...c, user_id: userId }))
+    ).select();
+
+    if (error) {
+        console.error("Error seeding categories:", error);
+        addNotification({ title: 'Erro', message: 'Não foi possível criar categorias padrão.', type: 'warning' });
+        return [];
+    }
+    return data || [];
+  }, [addNotification]);
+
 
   const fetchData = useCallback(async () => {
     if (!user || loadingRef.current) return;
@@ -101,6 +134,17 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         throw new Error(
           `Erro ao carregar Categorias: ${categoriesError.message}. Verifique se a tabela e as permissões (RLS) estão corretas.`
         );
+
+      let finalCategoriesData = categoriesData || [];
+      if (!categoriesError && categoriesData && categoriesData.length === 0) {
+        const { data: txCheck, error: txCheckError } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+        const hasTransactions = !txCheckError && (txCheck?.count ?? 0) > 0;
+        
+        if (!hasTransactions) {
+            addNotification({ title: 'Bem-vindo!', message: 'Adicionamos algumas categorias padrão para você começar.', type: 'info' });
+            finalCategoriesData = await seedDefaultCategories(user.id);
+        }
+      }
 
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
@@ -159,9 +203,9 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
 
 
       setAccounts(accountsData || []);
-      setCategories(categoriesData || []);
+      setCategories(finalCategoriesData || []);
 
-      const categoriesMap = new Map((categoriesData || []).map(c => [c.id, c]));
+      const categoriesMap = new Map((finalCategoriesData || []).map(c => [c.id, c]));
       const mappedTransactions =
         transactionsData?.map((tx: any) => ({
           id: tx.id,
@@ -227,7 +271,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       setLoading(false);
       loadingRef.current = false;
     }
-  }, [addNotification, user?.id]);
+  }, [addNotification, user?.id, seedDefaultCategories]);
 
   useEffect(() => {
     fetchData();
@@ -594,25 +638,40 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
 
-  const handleSaveCategory = async (newCategory: Omit<Category, 'id'>) => {
-    const { error } = await supabase
-      .from('categories')
-      .insert({ ...newCategory, user_id: user.id });
-    if (error) {
-      addNotification({
-        title: 'Erro',
-        message: 'Não foi possível salvar a categoria.',
-        type: 'warning'
-      });
+  const handleSaveOrUpdateCategory = async (categoryData: Omit<Category, 'id'> | Category) => {
+    if ('id' in categoryData) {
+        // Update logic
+        const { id, name, type, color, icon } = categoryData;
+        const { error } = await supabase
+            .from('categories')
+            .update({ name, type, color, icon })
+            .eq('id', id)
+            .eq('user_id', user.id);
+
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível atualizar a categoria.', type: 'warning' });
+        } else {
+            addNotification({ title: 'Sucesso', message: 'Categoria atualizada!', type: 'success' });
+        }
     } else {
-      addNotification({
-        title: 'Sucesso',
-        message: 'Categoria salva com sucesso!',
-        type: 'success'
-      });
-      await fetchData();
-      setCategoryModalOpen(false);
+        // Insert logic
+        const { error } = await supabase
+            .from('categories')
+            .insert({ ...categoryData, user_id: user.id });
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível salvar a categoria.', type: 'warning' });
+        } else {
+            addNotification({ title: 'Sucesso', message: 'Categoria salva com sucesso!', type: 'success' });
+        }
     }
+    await fetchData();
+    setCategoryModalOpen(false);
+    setEditingCategory(null);
+  };
+  
+  const handleEditCategory = (category: Category) => {
+      setEditingCategory(category);
+      setCategoryModalOpen(true);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
@@ -924,6 +983,8 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             onPayInvoice={openPaymentModal}
             transactions={transactions}
             onAddCard={() => openAddAccountModal(AccountType.CREDIT_CARD)}
+            onEditCard={handleEditAccount}
+            onDeleteCard={handleDeleteAccount}
           />
         );
       case 'Contas':
@@ -951,6 +1012,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
           <CategoriesPage
             categories={categories}
             onAddCategory={() => setCategoryModalOpen(true)}
+            onEditCategory={handleEditCategory}
             onDeleteCategory={handleDeleteCategory}
           />
         );
@@ -1084,8 +1146,12 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       />
       <CategoryModal
         isOpen={isCategoryModalOpen}
-        onClose={() => setCategoryModalOpen(false)}
-        onSave={handleSaveCategory}
+        onClose={() => {
+            setCategoryModalOpen(false);
+            setEditingCategory(null);
+        }}
+        onSave={handleSaveOrUpdateCategory}
+        categoryToEdit={editingCategory}
       />
     </div>
   );

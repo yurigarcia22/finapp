@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User } from '@supabase/supabase-js';
@@ -621,6 +623,8 @@ interface CardsPageProps {
     accounts: Account[];
     transactions: Transaction[];
     onAddCard: () => void;
+    onEditCard: (account: Account) => void;
+    onDeleteCard: (accountId: string) => void;
 }
 
 export const CardsPage: React.FC<CardsPageProps> = ({
@@ -628,9 +632,24 @@ export const CardsPage: React.FC<CardsPageProps> = ({
     onPayInvoice,
     accounts,
     transactions,
-    onAddCard
+    onAddCard,
+    onEditCard,
+    onDeleteCard,
 }) => {
     const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
+    const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setDropdownOpenId(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+    
     const creditCardAccounts = accounts.filter(acc => acc.type === AccountType.CREDIT_CARD);
 
     const toggleInvoiceDetails = (invoiceId: string) => {
@@ -701,8 +720,31 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                         return (
                             <div
                                 key={card.id}
-                                className="bg-card p-6 rounded-xl border border-border shadow-sm"
+                                className="bg-card p-6 rounded-xl border border-border shadow-sm relative group"
                             >
+                                <div className="absolute top-4 right-4 z-10">
+                                    <div className="relative">
+                                        <button 
+                                            onClick={() => setDropdownOpenId(dropdownOpenId === card.id ? null : card.id)} 
+                                            className="p-2 rounded-full bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <MoreVerticalIcon className="w-5 h-5" />
+                                        </button>
+                                        {dropdownOpenId === card.id && (
+                                            <div ref={dropdownRef} className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-popover ring-1 ring-border focus:outline-none animate-element">
+                                                <div className="py-1">
+                                                    <button onClick={() => { onEditCard(card); setDropdownOpenId(null); }} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
+                                                        <EditIcon className="h-4 w-4" /> Editar
+                                                    </button>
+                                                    <button onClick={() => { onDeleteCard(card.id); setDropdownOpenId(null); }} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-accent">
+                                                        <Trash2Icon className="h-4 w-4" /> Excluir
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="flex items-center justify-between mb-6 pb-6 border-b border-border">
                                     <div className="flex items-center">
                                         <CreditCardIcon className="h-10 w-10 text-primary" />
@@ -1047,12 +1089,14 @@ export const RulesPage: React.FC<RulesPageProps> = ({
 interface CategoriesPageProps {
     categories: Category[];
     onAddCategory: () => void;
+    onEditCategory: (category: Category) => void;
     onDeleteCategory: (categoryId: string) => void;
 }
 
 export const CategoriesPage: React.FC<CategoriesPageProps> = ({
     categories,
     onAddCategory,
+    onEditCategory,
     onDeleteCategory
 }) => {
     return (
@@ -1079,6 +1123,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
                             >
                                 <td className="px-6 py-4 font-medium text-foreground">
                                     <div className="flex items-center">
+                                        <span className="text-xl mr-4 w-6 text-center">{cat.icon}</span>
                                         <span
                                             className="h-3 w-3 rounded-full mr-3"
                                             style={{ backgroundColor: cat.color }}
@@ -1090,8 +1135,8 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
                                     <span
                                         className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                             cat.type === CategoryType.INCOME
-                                                ? 'bg-green-500/20 text-green-500'
-                                                : 'bg-red-500/20 text-red-500'
+                                                ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                                                : 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
                                         }`}
                                     >
                                         {cat.type === CategoryType.INCOME
@@ -1101,7 +1146,7 @@ export const CategoriesPage: React.FC<CategoriesPageProps> = ({
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center justify-center space-x-3">
-                                        <button className="text-muted-foreground hover:text-foreground">
+                                        <button onClick={() => onEditCategory(cat)} className="text-muted-foreground hover:text-foreground">
                                             <EditIcon className="h-4 w-4" />
                                         </button>
                                         <button
@@ -1904,68 +1949,86 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                     Adicionar Despesa
                 </ActionButton>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {expensesForCurrentMonth.map(item => (
-                    <div
-                        key={item.id}
-                        className="bg-card p-5 rounded-xl border border-border shadow-sm flex flex-col justify-between transition-all duration-300 hover:shadow-md"
-                    >
-                        <div>
-                            <div className="flex justify-between items-start mb-3">
-                                <h3 className="text-lg font-bold text-foreground">
-                                    {item.fixedExpense?.name}
-                                </h3>
-                                <span
-                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                        item.status === 'Pago'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-yellow-100 text-yellow-700'
-                                    }`}
-                                >
-                                    {item.status}
-                                </span>
-                            </div>
-                            <p className="text-3xl font-bold text-foreground mb-1">
-                                {new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL'
-                                }).format(item.amount)}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                Vence dia {new Date(item.due_date).getUTCDate()}
-                            </p>
-                        </div>
-                        <div className="mt-4 flex justify-end items-center space-x-2">
-                             <div className="relative">
-                                <button onClick={() => setDropdownOpenId(dropdownOpenId === item.id ? null : item.id)} className="p-1 text-muted-foreground hover:text-foreground">
-                                    <MoreVerticalIcon className="h-5 w-5" />
-                                </button>
-                                {dropdownOpenId === item.id && item.fixedExpense && (
-                                    <div ref={dropdownRef} className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-popover ring-1 ring-border focus:outline-none z-10 animate-element">
-                                        <div className="py-1">
-                                            <button onClick={() => handleOpenEditModal(item.fixedExpense!)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
-                                                <EditIcon className="h-4 w-4" /> Editar
-                                            </button>
-                                            <button onClick={() => handleOpenDeleteModal(item)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-accent">
-                                                <Trash2Icon className="h-4 w-4" /> Excluir
-                                            </button>
+            
+            <div className="bg-card rounded-xl border border-border shadow-sm">
+                <div className={dropdownOpenId ? 'overflow-visible' : 'overflow-x-auto'}>
+                    <table className="w-full text-sm text-left text-muted-foreground">
+                        <thead className="text-xs text-muted-foreground uppercase bg-secondary">
+                            <tr>
+                                <th scope="col" className="px-6 py-3 font-medium">Despesa</th>
+                                <th scope="col" className="px-6 py-3 font-medium">Vencimento</th>
+                                <th scope="col" className="px-6 py-3 font-medium text-right">Valor</th>
+                                <th scope="col" className="px-6 py-3 font-medium text-center">Status</th>
+                                <th scope="col" className="px-6 py-3 font-medium text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {expensesForCurrentMonth.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="text-center py-10 text-muted-foreground">
+                                        Nenhuma despesa para este mês.
+                                    </td>
+                                </tr>
+                            ) : expensesForCurrentMonth.map(item => (
+                                <tr key={item.id} className="border-b border-border hover:bg-secondary">
+                                    <td className="px-6 py-4 font-medium text-foreground">
+                                        <div>
+                                            <span>{item.fixedExpense?.name}</span>
+                                            <div className="flex items-center text-xs text-muted-foreground mt-1">
+                                                <span className="h-2 w-2 rounded-full mr-2" style={{ backgroundColor: item.fixedExpense?.category?.color || '#808080' }} />
+                                                <span>{item.fixedExpense?.category?.name || 'Sem Categoria'}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {item.status === 'Não pago' && (
-                                <button
-                                    onClick={() => handleOpenPayModal(item)}
-                                    className="px-4 py-2 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-                                >
-                                    Marcar como Paga
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {new Date(item.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                    </td>
+                                    <td className="px-6 py-4 font-semibold text-right text-foreground">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                                            item.status === 'Pago'
+                                                ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                                                : 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                        }`}>
+                                            {item.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center justify-center space-x-2">
+                                            {item.status === 'Não pago' && (
+                                                <button
+                                                    onClick={() => handleOpenPayModal(item)}
+                                                    className="px-3 py-1 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                                >
+                                                    Pagar
+                                                </button>
+                                            )}
+                                            <div className="relative">
+                                                <button onClick={() => setDropdownOpenId(dropdownOpenId === item.id ? null : item.id)} className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent">
+                                                    <MoreVerticalIcon className="h-5 w-5" />
+                                                </button>
+                                                {dropdownOpenId === item.id && item.fixedExpense && (
+                                                    <div ref={dropdownRef} className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-popover ring-1 ring-border focus:outline-none z-20 animate-element">
+                                                        <div className="py-1">
+                                                            <button onClick={() => handleOpenEditModal(item.fixedExpense!)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
+                                                                <EditIcon className="h-4 w-4" /> Editar
+                                                            </button>
+                                                            <button onClick={() => handleOpenDeleteModal(item)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-accent">
+                                                                <Trash2Icon className="h-4 w-4" /> Excluir
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <FixedExpenseModal
