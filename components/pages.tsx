@@ -1352,6 +1352,7 @@ interface FixedExpensesPageProps {
         options?: { showNotification?: boolean }
     ) => Promise<string | null>;
     onDataNeedsRefresh: () => void;
+    onSaveFixedExpense: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => void;
 }
 
 // Portal para garantir que o modal fique sempre acima de tudo e centralizado
@@ -1633,7 +1634,8 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     categories,
     accounts,
     onSaveTransaction,
-    onDataNeedsRefresh
+    onDataNeedsRefresh,
+    onSaveFixedExpense
 }) => {
     const { addNotification } = useNotifications();
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -1771,28 +1773,6 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
         }
     };
 
-    const handleSaveNewFixedExpense = async (
-        expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>
-    ) => {
-        const { error } = await supabase
-            .from('fixed_expenses')
-            .insert({ ...expense, is_active: true });
-        if (error) {
-            addNotification({
-                title: 'Erro',
-                message: 'Não foi possível salvar a despesa.',
-                type: 'warning'
-            });
-        } else {
-            addNotification({
-                title: 'Sucesso',
-                message: 'Despesa fixa criada!',
-                type: 'success'
-            });
-            onDataNeedsRefresh();
-        }
-    };
-
     const changeMonth = (offset: number) => {
         setCurrentDate(prevDate => {
             const newDate = new Date(prevDate);
@@ -1888,7 +1868,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
             <FixedExpenseModal
                 isOpen={isAddModalOpen}
                 onClose={() => setAddModalOpen(false)}
-                onSave={handleSaveNewFixedExpense}
+                onSave={onSaveFixedExpense}
                 expenseToEdit={null}
                 categories={categories}
             />

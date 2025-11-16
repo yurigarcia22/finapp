@@ -809,6 +809,28 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
 
+  const handleSaveFixedExpense = async (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => {
+    const { error } = await supabase
+        .from('fixed_expenses')
+        .insert({ ...expense, is_active: true, user_id: user.id });
+
+    if (error) {
+        addNotification({
+            title: 'Erro',
+            message: 'Não foi possível salvar a despesa fixa.',
+            type: 'warning'
+        });
+        console.error('Error saving fixed expense:', error);
+    } else {
+        addNotification({
+            title: 'Sucesso',
+            message: 'Despesa fixa criada com sucesso!',
+            type: 'success'
+        });
+        await fetchData();
+    }
+  };
+
   const renderPage = () => {
     const pageProps = { accounts, categories, transactions };
     switch (currentPage) {
@@ -838,6 +860,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
                 accounts={accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD)}
                 onSaveTransaction={handleSaveTransaction}
                 onDataNeedsRefresh={fetchData}
+                onSaveFixedExpense={handleSaveFixedExpense}
             />
         );
       case 'Orçamentos':
