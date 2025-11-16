@@ -809,26 +809,68 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
 
-  const handleSaveFixedExpense = async (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => {
-    const { error } = await supabase
-        .from('fixed_expenses')
-        .insert({ ...expense, is_active: true, user_id: user.id });
+  const handleSaveOrUpdateFixedExpense = async (expenseData: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => {
+    if ('id' in expenseData) {
+        // Lógica de atualização
+        const { id, name, default_amount, due_day, category_id, notes } = expenseData;
+        const { error } = await supabase
+            .from('fixed_expenses')
+            .update({ name, default_amount, due_day, category_id, notes })
+            .eq('id', id)
+            .eq('user_id', user.id);
 
-    if (error) {
-        addNotification({
-            title: 'Erro',
-            message: 'Não foi possível salvar a despesa fixa.',
-            type: 'warning'
-        });
-        console.error('Error saving fixed expense:', error);
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível atualizar a despesa fixa.', type: 'warning' });
+            console.error('Error updating fixed expense:', error);
+        } else {
+            addNotification({ title: 'Sucesso', message: 'Despesa fixa atualizada!', type: 'success' });
+            await fetchData();
+        }
     } else {
-        addNotification({
-            title: 'Sucesso',
-            message: 'Despesa fixa criada com sucesso!',
-            type: 'success'
-        });
-        await fetchData();
+        // Lógica de inserção
+        const { error } = await supabase
+            .from('fixed_expenses')
+            .insert({ ...expenseData, is_active: true, user_id: user.id });
+
+        if (error) {
+            addNotification({ title: 'Erro', message: 'Não foi possível salvar a despesa fixa.', type: 'warning' });
+            console.error('Error saving fixed expense:', error);
+        } else {
+            addNotification({ title: 'Sucesso', message: 'Despesa fixa criada com sucesso!', type: 'success' });
+            await fetchData();
+        }
     }
+  };
+  
+  const handleDeleteFixedExpense = async (monthlyExpense: MonthlyFixedExpense, mode: 'this' | 'all') => {
+      if (mode === 'this') {
+          const { error } = await supabase
+              .from('monthly_fixed_expenses')
+              .delete()
+              .eq('id', monthlyExpense.id)
+              .eq('user_id', user.id);
+          
+          if (error) {
+               addNotification({ title: 'Erro', message: 'Não foi possível apagar a despesa deste mês.', type: 'warning' });
+          } else {
+               addNotification({ title: 'Sucesso', message: 'Despesa do mês apagada.', type: 'success' });
+               await fetchData();
+          }
+      } else { // 'all'
+          // A exclusão da despesa principal deve, idealmente, cascatear e excluir as mensais (configuração no DB).
+          const { error } = await supabase
+              .from('fixed_expenses')
+              .delete()
+              .eq('id', monthlyExpense.fixed_expense_id)
+              .eq('user_id', user.id);
+          
+          if (error) {
+               addNotification({ title: 'Erro', message: 'Não foi possível apagar a despesa fixa permanentemente.', type: 'warning' });
+          } else {
+               addNotification({ title: 'Sucesso', message: 'Despesa fixa e suas ocorrências foram apagadas.', type: 'success' });
+               await fetchData();
+          }
+      }
   };
 
   const renderPage = () => {
@@ -854,13 +896,15 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
       case 'Fixas':
         return (
             <FixedExpensesPage 
+                user={user}
                 fixedExpenses={fixedExpenses}
                 monthlyFixedExpenses={monthlyFixedExpenses}
                 categories={categories}
                 accounts={accounts.filter(acc => acc.type !== AccountType.CREDIT_CARD)}
                 onSaveTransaction={handleSaveTransaction}
                 onDataNeedsRefresh={fetchData}
-                onSaveFixedExpense={handleSaveFixedExpense}
+                onSaveOrUpdateFixedExpense={handleSaveOrUpdateFixedExpense}
+                onDeleteFixedExpense={handleDeleteFixedExpense}
             />
         );
       case 'Orçamentos':

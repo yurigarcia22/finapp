@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User } from '@supabase/supabase-js';
 import {
@@ -1343,6 +1343,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 // PÁGINA DE DESPESAS FIXAS
 // ==================================================================================
 interface FixedExpensesPageProps {
+    user: User;
     fixedExpenses: FixedExpense[];
     monthlyFixedExpenses: MonthlyFixedExpense[];
     categories: Category[];
@@ -1352,7 +1353,8 @@ interface FixedExpensesPageProps {
         options?: { showNotification?: boolean }
     ) => Promise<string | null>;
     onDataNeedsRefresh: () => void;
-    onSaveFixedExpense: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => void;
+    onSaveOrUpdateFixedExpense: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => void;
+    onDeleteFixedExpense: (monthlyExpense: MonthlyFixedExpense, mode: 'this' | 'all') => Promise<void>;
 }
 
 // Portal para garantir que o modal fique sempre acima de tudo e centralizado
@@ -1364,7 +1366,7 @@ const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const FixedExpenseModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    onSave: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'>) => void;
+    onSave: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => void;
     expenseToEdit: FixedExpense | null;
     categories: Category[];
 }> = ({ isOpen, onClose, onSave, expenseToEdit, categories }) => {
@@ -1399,13 +1401,19 @@ const FixedExpenseModal: React.FC<{
             alert('É obrigatório selecionar uma categoria.');
             return;
         }
-        onSave({
+        const payload = {
             name,
             default_amount: parseFloat(amount),
             due_day: parseInt(dueDay, 10),
             category_id: categoryId,
             notes: notes || null
-        });
+        };
+
+        if (isEditing && expenseToEdit) {
+            onSave({ ...payload, id: expenseToEdit.id, is_active: expenseToEdit.is_active });
+        } else {
+            onSave(payload);
+        }
         onClose();
     };
 
@@ -1628,22 +1636,78 @@ const PayFixedExpenseModal: React.FC<{
     );
 };
 
+const DeleteConfirmationModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (mode: 'this' | 'all') => void;
+    expenseName: string;
+}> = ({ isOpen, onClose, onConfirm, expenseName }) => {
+    if (!isOpen) return null;
+    return (
+        <ModalPortal>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+                <div className="w-full max-w-md bg-card rounded-xl shadow-2xl text-card-foreground p-6 animate-element" onClick={e => e.stopPropagation()}>
+                    <h2 className="text-xl font-bold mb-2">Excluir Despesa Fixa</h2>
+                    <p className="text-muted-foreground mb-6">
+                        Você tem certeza que deseja excluir a despesa "{expenseName}"?
+                    </p>
+                    <div className="flex flex-col space-y-3">
+                        <button
+                            onClick={() => onConfirm('this')}
+                            className="w-full px-4 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-accent transition-colors text-left"
+                        >
+                            <p className="font-semibold">Apagar somente este mês</p>
+                            <p className="text-xs text-muted-foreground">Remove a despesa apenas da visão do mês atual.</p>
+                        </button>
+                        <button
+                            onClick={() => onConfirm('all')}
+                            className="w-full px-4 py-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors text-left"
+                        >
+                            <p className="font-semibold">Apagar permanentemente</p>
+                            <p className="text-xs">Exclui esta despesa de forma definitiva e impede futuras gerações.</p>
+                        </button>
+                    </div>
+                    <div className="flex justify-end mt-6">
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </ModalPortal>
+    );
+};
+
 export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
+    user,
     fixedExpenses,
     monthlyFixedExpenses,
     categories,
     accounts,
     onSaveTransaction,
     onDataNeedsRefresh,
-    onSaveFixedExpense
+    onSaveOrUpdateFixedExpense,
+    onDeleteFixedExpense
 }) => {
     const { addNotification } = useNotifications();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [isAddModalOpen, setAddModalOpen] = useState(false);
     const [isPayModalOpen, setPayModalOpen] = useState(false);
-    const [selectedExpense, setSelectedExpense] = useState<MonthlyFixedExpense | null>(
-        null
-    );
+    const [selectedExpense, setSelectedExpense] = useState<MonthlyFixedExpense | null>(null);
+    const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
+    const [deletingExpense, setDeletingExpense] = useState<MonthlyFixedExpense | null>(null);
+    const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setDropdownOpenId(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const currentMonthStr = useMemo(
         () =>
@@ -1677,7 +1741,8 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                         month: month,
                         amount: fe.default_amount,
                         status: 'Não pago' as const,
-                        due_date: dueDate.toISOString().split('T')[0]
+                        due_date: dueDate.toISOString().split('T')[0],
+                        user_id: user.id
                     };
                 });
                 const { error } = await supabase
@@ -1699,12 +1764,12 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                 }
             }
         },
-        [fixedExpenses, monthlyFixedExpenses, addNotification, onDataNeedsRefresh]
+        [fixedExpenses, monthlyFixedExpenses, addNotification, onDataNeedsRefresh, user.id]
     );
 
     useEffect(() => {
         generateMonthlyExpenses(currentMonthStr);
-    }, [currentMonthStr, generateMonthlyExpenses]);
+    }, [currentMonthStr, fixedExpenses, monthlyFixedExpenses, generateMonthlyExpenses]);
 
     const expensesForCurrentMonth = useMemo(() => {
         return monthlyFixedExpenses
@@ -1718,6 +1783,29 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     const handleOpenPayModal = (expense: MonthlyFixedExpense) => {
         setSelectedExpense(expense);
         setPayModalOpen(true);
+    };
+
+    const handleOpenEditModal = (expense: FixedExpense) => {
+        setEditingExpense(expense);
+        setAddModalOpen(true);
+        setDropdownOpenId(null);
+    };
+
+    const handleOpenDeleteModal = (monthlyExpense: MonthlyFixedExpense) => {
+        setDeletingExpense(monthlyExpense);
+        setDropdownOpenId(null);
+    };
+
+    const handleConfirmDelete = async (mode: 'this' | 'all') => {
+        if (deletingExpense) {
+            await onDeleteFixedExpense(deletingExpense, mode);
+            setDeletingExpense(null);
+        }
+    };
+    
+    const handleCloseAddModal = () => {
+        setAddModalOpen(false);
+        setEditingExpense(null);
     };
 
     const handleMarkAsPaid = async (
@@ -1810,7 +1898,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                 </div>
                 <ActionButton
                     icon={PlusCircleIcon}
-                    onClick={() => setAddModalOpen(true)}
+                    onClick={() => { setEditingExpense(null); setAddModalOpen(true); }}
                     variant="primary"
                 >
                     Adicionar Despesa
@@ -1848,10 +1936,25 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                 Vence dia {new Date(item.due_date).getUTCDate()}
                             </p>
                         </div>
-                        <div className="mt-4 flex justify-end space-x-2">
-                            <button className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                                Editar
-                            </button>
+                        <div className="mt-4 flex justify-end items-center space-x-2">
+                             <div className="relative">
+                                <button onClick={() => setDropdownOpenId(dropdownOpenId === item.id ? null : item.id)} className="p-1 text-muted-foreground hover:text-foreground">
+                                    <MoreVerticalIcon className="h-5 w-5" />
+                                </button>
+                                {dropdownOpenId === item.id && item.fixedExpense && (
+                                    <div ref={dropdownRef} className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-popover ring-1 ring-border focus:outline-none z-10 animate-element">
+                                        <div className="py-1">
+                                            <button onClick={() => handleOpenEditModal(item.fixedExpense!)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
+                                                <EditIcon className="h-4 w-4" /> Editar
+                                            </button>
+                                            <button onClick={() => handleOpenDeleteModal(item)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-accent">
+                                                <Trash2Icon className="h-4 w-4" /> Excluir
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {item.status === 'Não pago' && (
                                 <button
                                     onClick={() => handleOpenPayModal(item)}
@@ -1867,11 +1970,20 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
 
             <FixedExpenseModal
                 isOpen={isAddModalOpen}
-                onClose={() => setAddModalOpen(false)}
-                onSave={onSaveFixedExpense}
-                expenseToEdit={null}
+                onClose={handleCloseAddModal}
+                onSave={onSaveOrUpdateFixedExpense}
+                expenseToEdit={editingExpense}
                 categories={categories}
             />
+
+            {deletingExpense && (
+                 <DeleteConfirmationModal
+                    isOpen={!!deletingExpense}
+                    onClose={() => setDeletingExpense(null)}
+                    onConfirm={handleConfirmDelete}
+                    expenseName={deletingExpense.fixedExpense?.name || ''}
+                />
+            )}
 
             {selectedExpense && (
                 <PayFixedExpenseModal
