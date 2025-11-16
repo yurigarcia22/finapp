@@ -17,12 +17,14 @@ interface SidebarProps {
   currentPage: string;
   setCurrentPage: (page: string) => void;
   onLogout: () => void;
+  theme: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentPage,
   setCurrentPage,
-  onLogout
+  onLogout,
+  theme
 }) => {
   const navigation = [
     { name: 'Dashboard', icon: HomeIcon },
@@ -38,16 +40,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const secondaryNavigation = [{ name: 'Configurações', icon: SettingsIcon }];
 
-  const logoUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAACxSURBVHgB7ZaxDcMwDEVfkoMYQ2BEFo3ACJ2BEdjAhHICMkJ3YASGSE4iSgL1SKhUQlLxL1lKX/tefP1wASSSSCQ1ADvAR8AOLcAU4Fw28Atg4Y3ARwBPRcTLCbgWcE/v4P0wYBuwAgxAAnwCDsAm8C2n1QC2+SgA5+z/gYg5b4G0EAX0BgwA2+Bd+AAT4AX4LuefCVeSSCQ1gN/1c/FlP/gH1kCTlT0AZwB7l/QnJ+cAAAAASUVORK5CYII=';
+  // ❗ Mantive exatamente as URLs que você passou
+  const lightLogoUrl = 'https://i.ibb.co/hx9bHhZg/LOGOTIPO-V3.png';
+  const darkLogoUrl = 'https://i.ibb.co/MD2j2Lq6/LOGOTIPO-V4.png';
 
   return (
     <div className="hidden lg:flex lg:flex-shrink-0">
       <div className="flex flex-col w-64">
         <div className="flex flex-col flex-grow bg-card border-r border-border pt-5 pb-4 overflow-y-auto">
-          
-          <div className="flex items-center flex-shrink-0 px-6">
-            <img src={logoUrl} alt="NG Fin Logo" className="h-8 w-8" />
-            <span className="ml-3 text-2xl font-bold text-foreground">NG Fin</span>
+
+          {/* Logo com tamanho ajustado, sem classe inválida */}
+          <div className="flex items-center justify-center flex-shrink-0 px-4 py-6">
+            <img
+              src={theme === 'dark' ? darkLogoUrl : lightLogoUrl}
+              alt="NG Fin Logo"
+              className="h-[96px] w-auto"
+            />
           </div>
 
           <div className="mt-8 flex-1 flex flex-col">

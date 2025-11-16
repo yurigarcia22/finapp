@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, Suspense, useRef, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Sidebar } from './components/Sidebar';
@@ -138,8 +139,9 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
 
       let finalCategoriesData = categoriesData || [];
       if (!categoriesError && categoriesData && categoriesData.length === 0) {
-        const { data: txCheck, error: txCheckError } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
-        const hasTransactions = !txCheckError && (txCheck?.count ?? 0) > 0;
+        // FIX: Destructure `count` directly from the Supabase response, not from the `data` property.
+        const { count: txCount, error: txCheckError } = await supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
+        const hasTransactions = !txCheckError && (txCount ?? 0) > 0;
         
         if (!hasTransactions) {
             addNotification({ title: 'Bem-vindo!', message: 'Adicionamos algumas categorias padrão para você começar.', type: 'info' });
@@ -1067,6 +1069,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         onLogout={onLogout}
+        theme={theme}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
