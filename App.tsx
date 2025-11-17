@@ -304,7 +304,14 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     if (!user) return;
     const transactionDate = new Date(transactionDateStr + 'T12:00:00Z');
     
-    const invoiceDueDate = new Date(Date.UTC(transactionDate.getUTCFullYear(), transactionDate.getUTCMonth() + 1, dueDay));
+    let dueYear = transactionDate.getUTCFullYear();
+    let dueMonth = transactionDate.getUTCMonth();
+
+    if (transactionDate.getUTCDate() >= dueDay) {
+        dueMonth += 1;
+    }
+    
+    const invoiceDueDate = new Date(Date.UTC(dueYear, dueMonth, dueDay));
     const dueDateStr = invoiceDueDate.toISOString().split('T')[0];
 
     let { data: invoice, error: findError } = await supabase

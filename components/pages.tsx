@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User } from '@supabase/supabase-js';
@@ -708,23 +710,29 @@ export const CardsPage: React.FC<CardsPageProps> = ({
     };
 
     const getTransactionsForInvoice = (invoice: CreditInvoice) => {
-        const invoiceDate = new Date(invoice.dueDate + 'T00:00:00');
-        const targetMonth = invoiceDate.getMonth() === 0 ? 11 : invoiceDate.getMonth() - 1;
-        const targetYear =
-            invoiceDate.getMonth() === 0
-                ? invoiceDate.getFullYear() - 1
-                : invoiceDate.getFullYear();
+        const card = accounts.find(acc => acc.id === invoice.cardId);
+        if (!card || !card.due_day) return [];
+        const dueDay = card.due_day;
 
+        const invoiceDueDate = new Date(invoice.dueDate + 'T12:00:00Z');
+        const dueYear = invoiceDueDate.getUTCFullYear();
+        const dueMonth = invoiceDueDate.getUTCMonth(); // 0-11
+
+        // The transaction period for an invoice due on {dueMonth} starts on {dueDay} of {dueMonth - 1}
+        // and ends on {dueDay - 1} of {dueMonth}.
+        const periodStartDate = new Date(Date.UTC(dueYear, dueMonth - 1, dueDay));
+        const periodEndDate = new Date(Date.UTC(dueYear, dueMonth, dueDay - 1));
+
+        const periodStartStr = periodStartDate.toISOString().split('T')[0];
+        const periodEndStr = periodEndDate.toISOString().split('T')[0];
+        
         return transactions
             .filter(tx => {
                 if (tx.accountId !== invoice.cardId) return false;
-                const txDate = new Date(tx.date + 'T00:00:00');
-                return (
-                    txDate.getMonth() === targetMonth &&
-                    txDate.getFullYear() === targetYear
-                );
+                // Simple string comparison works because dates are in YYYY-MM-DD format
+                return tx.date >= periodStartStr && tx.date <= periodEndStr;
             })
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     };
 
     return (
@@ -759,7 +767,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                 <div className="space-y-8">
                     {creditCardAccounts.map(card => {
                         const cardInvoices = invoices
-                            .filter(inv => inv.cardId === card.id)
+                            .filter(inv => inv.cardId === card.id && Math.abs(inv.amount) > 0.01)
                             .sort(
                                 (a, b) =>
                                     new Date(b.dueDate).getTime() -
