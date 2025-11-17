@@ -299,97 +299,163 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
   // ==================================================================================
   // FUNÇÕES HANDLER PARA MODIFICAR O ESTADO
   // ==================================================================================
+  
+  const updateCreditCardInvoice = useCallback(async (accountId: string, transactionDateStr: string, transactionAmount: number, dueDay: number) => {
+    if (!user) return;
+    const transactionDate = new Date(transactionDateStr + 'T12:00:00Z');
+    
+    const invoiceDueDate = new Date(Date.UTC(transactionDate.getUTCFullYear(), transactionDate.getUTCMonth() + 1, dueDay));
+    const dueDateStr = invoiceDueDate.toISOString().split('T')[0];
+
+    let { data: invoice, error: findError } = await supabase
+        .from('credit_invoices')
+        .select('id, amount')
+        .eq('user_id', user.id)
+        .eq('card_id', accountId)
+        .eq('due_date', dueDateStr)
+        .single();
+
+    if (findError && findError.code !== 'PGRST116') {
+        throw new Error(`Erro ao buscar fatura: ${findError.message}`);
+    }
+
+    if (invoice) {
+        const newAmount = invoice.amount + transactionAmount;
+        const finalAmount = Math.abs(newAmount) < 0.01 ? 0 : newAmount;
+
+        const { error: updateError } = await supabase
+            .from('credit_invoices')
+            .update({ amount: finalAmount })
+            .eq('id', invoice.id);
+        if (updateError) throw new Error(`Erro ao atualizar fatura: ${updateError.message}`);
+    } else {
+        if (transactionAmount > 0) {
+            const monthName = invoiceDueDate.toLocaleString('pt-BR', { month: 'long', timeZone: 'UTC' });
+            const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+            
+            const newInvoice = {
+                card_id: accountId,
+                month: capitalizedMonth,
+                status: 'Aberta' as const,
+                amount: transactionAmount,
+                due_date: dueDateStr,
+                user_id: user.id
+            };
+            const { error: createError } = await supabase.from('credit_invoices').insert(newInvoice);
+            if (createError) throw new Error(`Erro ao criar fatura: ${createError.message}`);
+        }
+    }
+  }, [user]);
+
   const handleSaveTransaction = async (newTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'>, options?: { showNotification?: boolean }) => {
     const { category, accountId, installments, ...rest } = newTransaction;
     const account = accounts.find(acc => acc.id === accountId);
-    let createdTransactionId: string | null = null;
 
-    if (account?.type === AccountType.CREDIT_CARD && installments && installments > 1) {
-        // Handle installment transaction with integer math to avoid floating point errors
-        const transactionsToInsert = [];
-        const parentId = crypto.randomUUID();
-        
-        const totalAmountInCents = Math.round(newTransaction.amount * 100);
-        const baseInstallmentAmountInCents = Math.floor(totalAmountInCents / installments);
-        const remainderInCents = totalAmountInCents % installments;
-        
-        const txDate = new Date(newTransaction.date + 'T12:00:00Z');
+    if (!user) {
+        addNotification({ title: 'Erro', message: 'Usuário não autenticado.', type: 'warning' });
+        return null;
+    }
+    if (!account) {
+        addNotification({ title: 'Erro', message: 'Conta não encontrada.', type: 'warning' });
+        return null;
+    }
 
-        for (let i = 1; i <= installments; i++) {
-            const installmentDate = new Date(txDate);
-            installmentDate.setMonth(txDate.getMonth() + i - 1);
-            
-            let currentInstallmentAmountInCents = baseInstallmentAmountInCents;
-            if (i === 1) {
-                currentInstallmentAmountInCents += remainderInCents; // Add remainder to the first installment
+    try {
+        if (account.type === AccountType.CREDIT_CARD && installments && installments > 1) {
+            // Installment logic
+            const { due_day: dueDay } = account;
+            if (!dueDay) {
+                throw new Error('O cartão de crédito precisa de um dia de vencimento para registrar parcelas.');
             }
 
-            transactionsToInsert.push({
+            const transactionsToInsert = [];
+            const totalAmountInCents = Math.round(newTransaction.amount * 100);
+            const baseInstallmentAmountInCents = Math.floor(totalAmountInCents / installments);
+            const remainderInCents = totalAmountInCents % installments;
+            const txDate = new Date(newTransaction.date + 'T12:00:00Z');
+
+            for (let i = 1; i <= installments; i++) {
+                const installmentDate = new Date(txDate);
+                installmentDate.setUTCMonth(txDate.getUTCMonth() + i - 1);
+                
+                let currentInstallmentAmountInCents = baseInstallmentAmountInCents;
+                if (i === 1) {
+                    currentInstallmentAmountInCents += remainderInCents;
+                }
+
+                transactionsToInsert.push({
+                    ...rest,
+                    account_id: accountId,
+                    category_id: category?.id,
+                    user_id: user.id,
+                    description: `${newTransaction.description} (${i}/${installments})`,
+                    amount: currentInstallmentAmountInCents / 100,
+                    date: installmentDate.toISOString().split('T')[0],
+                    status: TransactionStatus.PENDING,
+                });
+            }
+
+            const { error: txError } = await supabase.from('transactions').insert(transactionsToInsert);
+            if (txError) throw new Error(`Não foi possível salvar as transações parceladas: ${txError.message}`);
+
+            // Update invoices for each installment
+            for (const tx of transactionsToInsert) {
+                const amountChange = tx.type === CategoryType.INCOME ? -tx.amount : tx.amount;
+                await updateCreditCardInvoice(accountId, tx.date, amountChange, dueDay);
+            }
+
+            // Update card balance with total purchase amount
+            const totalAmountChange = newTransaction.type === CategoryType.INCOME ? -newTransaction.amount : newTransaction.amount;
+            await supabase.from('accounts').update({ balance: account.balance + totalAmountChange }).eq('id', account.id);
+            
+            if (options?.showNotification !== false) {
+                addNotification({ title: 'Sucesso', message: 'Transação parcelada salva com sucesso!', type: 'success' });
+            }
+            await fetchData();
+            setTransactionModalOpen(false);
+            return null; // No single ID for installment purchases
+        
+        } else {
+            // Single transaction logic
+            const { data, error } = await supabase.from('transactions').insert({
                 ...rest,
                 account_id: accountId,
                 category_id: category?.id,
-                user_id: user.id,
-                description: `${newTransaction.description} (${i}/${installments})`,
-                amount: currentInstallmentAmountInCents / 100,
-                date: installmentDate.toISOString().split('T')[0],
-                status: TransactionStatus.PENDING,
-                parent_transaction_id: parentId,
-                current_installment: i,
-                installments: installments,
-            });
-        }
+                user_id: user.id
+            }).select('id').single();
 
-        const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-
-        if (error) {
-            addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação parcelada.', type: 'warning' });
-            console.error(error);
-            return null;
-        }
-
-        // Update current open invoice with the amount of the first installment
-        const firstInstallmentAmount = (baseInstallmentAmountInCents + remainderInCents) / 100;
-        const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
-        if (openInvoice) {
-            await supabase.from('credit_invoices').update({ amount: openInvoice.amount + firstInstallmentAmount }).eq('id', openInvoice.id);
-        }
-
-    } else {
-        // Handle single transaction
-        const { data, error } = await supabase.from('transactions').insert({
-            ...rest,
-            account_id: accountId,
-            category_id: category?.id,
-            user_id: user.id
-        }).select('id').single();
-
-        if (error || !data) {
-            addNotification({ title: 'Erro', message: 'Não foi possível salvar a transação.', type: 'warning' });
-            console.error(error);
-            return null;
-        }
-        
-        createdTransactionId = data.id;
-
-        if (account?.type === AccountType.CREDIT_CARD) {
-            const { data: openInvoice } = await supabase.from('credit_invoices').select('*').eq('card_id', accountId).eq('status', 'Aberta').single();
-            if (openInvoice) {
-                const amountChange = newTransaction.type === CategoryType.INCOME ? -newTransaction.amount : newTransaction.amount;
-                await supabase.from('credit_invoices').update({ amount: openInvoice.amount + amountChange }).eq('id', openInvoice.id);
+            if (error || !data) {
+                throw new Error(`Não foi possível salvar a transação: ${error?.message}`);
             }
-        } else if (account) {
+            
             const amountChange = newTransaction.type === CategoryType.INCOME ? newTransaction.amount : -newTransaction.amount;
-            await supabase.from('accounts').update({ balance: account.balance + amountChange }).eq('id', account.id);
-        }
-    }
 
-    if(options?.showNotification !== false) {
-      addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
+            if (account.type === AccountType.CREDIT_CARD) {
+                const { due_day: dueDay } = account;
+                 if (!dueDay) {
+                    throw new Error('O cartão de crédito precisa de um dia de vencimento.');
+                 }
+                await updateCreditCardInvoice(accountId, newTransaction.date, -amountChange, dueDay);
+                // For expenses, amountChange is negative, so we subtract it to increase the balance (debt)
+                await supabase.from('accounts').update({ balance: account.balance - amountChange }).eq('id', account.id);
+            } else {
+                await supabase.from('accounts').update({ balance: account.balance + amountChange }).eq('id', account.id);
+            }
+            
+            if (options?.showNotification !== false) {
+                addNotification({ title: 'Sucesso', message: 'Transação salva com sucesso!', type: 'success' });
+            }
+            await fetchData();
+            setTransactionModalOpen(false);
+            return data.id;
+        }
+
+    } catch (err: any) {
+        addNotification({ title: 'Erro', message: err.message, type: 'warning' });
+        console.error(err);
+        return null;
     }
-    await fetchData();
-    setTransactionModalOpen(false);
-    return createdTransactionId;
-};
+  };
 
 
   const handleCreateAccount = async (newAccount: Omit<Account, 'id' | 'currency'>) => {
@@ -573,39 +639,44 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     setAccountModalOpen(true);
   };
 
-  const handlePayInvoice = async (
-    invoiceId: string,
-    paymentAccountId: string,
-    amount: number
-  ) => {
+  const handlePayInvoice = async (invoiceId: string, paymentAccountId: string, amount: number) => {
+    if (!user) return;
+    const invoiceToPay = invoices.find(i => i.id === invoiceId);
+    if (!invoiceToPay) return;
+
     const { error: invoiceError } = await supabase
       .from('credit_invoices')
       .update({ status: 'Paga' })
       .eq('id', invoiceId)
       .eq('user_id', user.id);
+
     if (invoiceError) {
-      addNotification({
-        title: 'Erro',
-        message: 'Não foi possível pagar a fatura.',
-        type: 'warning'
-      });
-      console.error(invoiceError);
-      return;
+        addNotification({ title: 'Erro', message: 'Não foi possível atualizar o status da fatura.', type: 'warning' });
+        return;
     }
 
-    const paymentTransaction: Omit<Transaction, 'id' | 'current_installment' | 'parent_transaction_id'> = {
-      description: `Pagamento Fatura ${
-        invoices.find(i => i.id === invoiceId)?.month
-      }`,
-      amount: amount,
-      date: new Date().toISOString().split('T')[0],
-      type: CategoryType.EXPENSE,
-      category: categories.find(c => c.name === 'Pagamento de Fatura')!,
-      accountId: paymentAccountId,
-      status: TransactionStatus.CLEARED
-    };
-    await handleSaveTransaction(paymentTransaction); // This will handle notifications and fetching data
+    const cardAccount = accounts.find(acc => acc.id === invoiceToPay.cardId);
+    if (cardAccount) {
+        await supabase
+            .from('accounts')
+            .update({ balance: cardAccount.balance - amount })
+            .eq('id', cardAccount.id)
+            .eq('user_id', user.id);
+    }
+    
+    // The payment transaction itself is handled by handleSaveTransaction, which will update the payment account's balance
+    await handleSaveTransaction({
+        description: `Pagamento Fatura ${invoiceToPay.month}`,
+        amount: amount,
+        date: new Date().toISOString().split('T')[0],
+        type: CategoryType.EXPENSE,
+        category: categories.find(c => c.name === 'Contas')!, // Find a more appropriate category if needed
+        accountId: paymentAccountId,
+        status: TransactionStatus.CLEARED
+    });
+
     setPaymentModalOpen(false);
+    // handleSaveTransaction already calls fetchData
   };
 
   const openPaymentModal = (invoice: CreditInvoice) => {
@@ -813,79 +884,91 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
 
-  const handleDeleteTransaction = async (transaction: Transaction) => {
-    if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-      const { error } = await supabase
+  const handleDeleteTransaction = async (transaction: Transaction & { isGroup?: boolean }) => {
+    if (!user) return;
+
+    let transactionsToDelete: Transaction[] = [];
+    let isInstallmentDeletion = false;
+
+    // It's a summarized/grouped transaction from the main list
+    if (transaction.isGroup && transaction.installments) {
+        const baseDesc = transaction.description;
+        const totalInstallments = transaction.installments;
+
+        transactionsToDelete = transactions.filter(tx => {
+            const siblingMatch = tx.description.match(/(.+) \((\d+)\/(\d+)\)$/);
+            return siblingMatch && 
+                   siblingMatch[1] === baseDesc && 
+                   parseInt(siblingMatch[3], 10) === totalInstallments && 
+                   tx.accountId === transaction.accountId;
+        });
+        isInstallmentDeletion = transactionsToDelete.length > 0;
+    } else {
+        // It's a single transaction, which might be one part of an installment
+        const installmentMatch = transaction.description.match(/(.+) \((\d+)\/(\d+)\)$/);
+        if (installmentMatch) {
+            const [, baseDesc, , totalInstallmentsStr] = installmentMatch;
+            const allSiblings = transactions.filter(tx => {
+                const siblingMatch = tx.description.match(/(.+) \((\d+)\/(\d+)\)$/);
+                return siblingMatch && siblingMatch[1] === baseDesc && siblingMatch[3] === totalInstallmentsStr && tx.accountId === transaction.accountId;
+            });
+            if (allSiblings.length > 0) {
+                transactionsToDelete = allSiblings;
+                isInstallmentDeletion = true;
+            }
+        }
+    }
+    
+    // If it's a regular, non-installment transaction
+    if (transactionsToDelete.length === 0) {
+        transactionsToDelete.push(transaction);
+        isInstallmentDeletion = false;
+    }
+
+    const confirmMessage = isInstallmentDeletion
+      ? `Tem certeza que deseja excluir esta compra parcelada e todas as suas ${transactionsToDelete.length} parcelas?`
+      : 'Tem certeza que deseja excluir esta transação?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const account = accounts.find(acc => acc.id === transaction.accountId);
+      if (!account) throw new Error('Conta associada não encontrada.');
+      
+      const totalAmountReversed = transactionsToDelete.reduce((sum, tx) => {
+        return sum + (tx.type === CategoryType.INCOME ? -tx.amount : tx.amount);
+      }, 0);
+
+      const { error: deleteError } = await supabase
         .from('transactions')
         .delete()
-        .eq('id', transaction.id)
-        .eq('user_id', user.id);
+        .in('id', transactionsToDelete.map(t => t.id));
 
-      if (error) {
-        addNotification({
-          title: 'Erro',
-          message: 'Não foi possível excluir a transação.',
-          type: 'warning'
-        });
-        return;
-      }
-
-      const { data: account } = await supabase
-        .from('accounts')
-        .select('id, type, balance')
-        .eq('id', transaction.accountId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (!account) {
-        addNotification({
-          title: 'Erro',
-          message: 'Conta associada não encontrada. O balanço pode estar incorreto.',
-          type: 'warning'
-        });
-        await fetchData();
-        return;
-      }
+      if (deleteError) throw deleteError;
 
       if (account.type === AccountType.CREDIT_CARD) {
-        const { data: openInvoice } = await supabase
-          .from('credit_invoices')
-          .select('id, amount')
-          .eq('card_id', transaction.accountId)
-          .eq('status', 'Aberta')
-          .eq('user_id', user.id)
-          .single();
-        if (openInvoice) {
-          const amountChange =
-            transaction.type === CategoryType.INCOME
-              ? transaction.amount
-              : -transaction.amount;
-          await supabase
-            .from('credit_invoices')
-            .update({ amount: openInvoice.amount + amountChange })
-            .eq('id', openInvoice.id)
-            .eq('user_id', user.id);
+        // Revert card balance
+        await supabase.from('accounts').update({ balance: account.balance - totalAmountReversed }).eq('id', account.id);
+        
+        // Revert invoice amounts
+        for (const tx of transactionsToDelete) {
+          const amountChange = tx.type === CategoryType.INCOME ? tx.amount : -tx.amount;
+          await updateCreditCardInvoice(tx.accountId, tx.date, amountChange, account.due_day!);
         }
       } else {
-        const amountChange =
-          transaction.type === CategoryType.INCOME
-            ? -transaction.amount
-            : transaction.amount;
-        await supabase
-          .from('accounts')
-          .update({ balance: account.balance + amountChange })
-          .eq('id', account.id)
-          .eq('user_id', user.id);
+        // Revert regular account balance
+        await supabase.from('accounts').update({ balance: account.balance - totalAmountReversed }).eq('id', account.id);
       }
-
-      addNotification({
-        title: 'Sucesso',
-        message: 'Transação excluída com sucesso!',
-        type: 'success'
-      });
+      
+      addNotification({ title: 'Sucesso', message: 'Transação(ões) excluída(s) com sucesso!', type: 'success' });
       await fetchData();
+
+    } catch (err: any) {
+      console.error(err);
+      addNotification({ title: 'Erro', message: `Não foi possível excluir a transação: ${err.message}`, type: 'warning' });
     }
   };
+
 
   const handleSaveOrUpdateFixedExpense = async (expenseData: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => {
     if ('id' in expenseData) {

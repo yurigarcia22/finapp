@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { XIcon } from './icons';
+import { XIcon, InfoIcon } from './icons';
 import { Transaction, Account, Category, CategoryType, TransactionStatus, AccountType } from '../types';
 
 interface TransactionModalProps {
@@ -131,7 +131,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onCl
                         <input type="text" id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex: Mercado" required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary" />
                     </div>
                     <div>
-                        <label htmlFor="account" className="block text-sm font-medium text-muted-foreground mb-1">Conta</label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label htmlFor="account" className="text-sm font-medium text-muted-foreground">Conta</label>
+                            {selectedAccount?.type === AccountType.CREDIT_CARD && (
+                                <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+                                    <InfoIcon className="h-3.5 w-3.5" />
+                                    <span>A despesa será adicionada na fatura.</span>
+                                </div>
+                            )}
+                        </div>
                         <select id="account" value={accountId} onChange={e => setAccountId(e.target.value)} required className="w-full bg-secondary border border-border rounded-md p-3 text-foreground focus:ring-2 focus:ring-primary focus:border-primary">
                             <option value="" disabled>Selecione uma conta</option>
                             {otherAccounts.length > 0 && (

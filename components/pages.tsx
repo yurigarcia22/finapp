@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User } from '@supabase/supabase-js';
@@ -58,6 +59,10 @@ const translateAccountType = (type: AccountType): string => {
     }
 };
 
+const formatCurrency = (value?: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+};
+
 // ==================================================================================
 // COMPONENTES UTILITÁRIOS
 // ==================================================================================
@@ -96,7 +101,7 @@ interface TransactionsPageProps {
     transactions: Transaction[];
     accounts: Account[];
     categories: Category[];
-    onDeleteTransaction: (transaction: Transaction) => void;
+    onDeleteTransaction: (transaction: Transaction & { isGroup?: boolean }) => void;
 }
 
 export const TransactionsPage: React.FC<TransactionsPageProps> = ({
@@ -121,6 +126,45 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         { key: 'lastMonth', label: 'Mês Passado' },
         { key: 'custom', label: 'Personalizado' }
     ];
+
+    const processedTransactions = useMemo(() => {
+        const installmentGroups: { [key: string]: Transaction[] } = {};
+        const singleTransactions: Transaction[] = [];
+
+        transactions.forEach(tx => {
+            const match = tx.description.match(/(.+) \((\d+)\/(\d+)\)$/);
+            if (match) {
+                const [, baseDesc, , total] = match;
+                const key = `${baseDesc}_${total}_${tx.accountId}`;
+                if (!installmentGroups[key]) {
+                    installmentGroups[key] = [];
+                }
+                installmentGroups[key].push(tx);
+            } else {
+                singleTransactions.push(tx);
+            }
+        });
+
+        const summarizedInstallments = Object.values(installmentGroups).map(group => {
+            group.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const representative = group[0];
+            const totalAmount = group.reduce((sum, tx) => sum + tx.amount, 0);
+            
+            return {
+                ...representative,
+                id: representative.id, // Use the ID of the first installment as the key for deletion logic
+                description: representative.description.match(/(.+) \(\d+\/\d+\)$/)![1],
+                amount: totalAmount,
+                installments: group.length,
+                isGroup: true,
+            };
+        });
+        
+        const combined = [...singleTransactions, ...summarizedInstallments];
+        combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return combined;
+    }, [transactions]);
+
 
     const handleDatePresetChange = (preset: string) => {
         const now = new Date();
@@ -165,7 +209,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
     };
 
     const filteredTransactions = useMemo(() => {
-        return transactions.filter(tx => {
+        return processedTransactions.filter(tx => {
             if (!tx || !tx.date) return false;
             const txDateOnly = tx.date.substring(0, 10);
 
@@ -176,7 +220,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
 
             return true;
         });
-    }, [transactions, filters]);
+    }, [processedTransactions, filters]);
 
     const handleFilterChange = (key: 'type' | 'accountId' | 'startDate' | 'endDate', value: string) => {
         const isDateChange = key === 'startDate' || key === 'endDate';
@@ -342,7 +386,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredTransactions.map(tx => (
+                                {filteredTransactions.map((tx: any) => (
                                     <tr
                                         key={tx.id}
                                         className="border-b border-border hover:bg-secondary"
@@ -357,6 +401,11 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                         </td>
                                         <td className="px-6 py-4 font-medium text-foreground whitespace-nowrap">
                                             {tx.description}
+                                            {tx.isGroup && (
+                                                <span className="text-xs text-muted-foreground ml-2">
+                                                    ({tx.installments}x de {formatCurrency(tx.amount / tx.installments)})
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center">
@@ -389,10 +438,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
                                             }`}
                                         >
                                             {tx.type === CategoryType.EXPENSE ? '-' : ''}
-                                            {new Intl.NumberFormat('pt-BR', {
-                                                style: 'currency',
-                                                currency: 'BRL'
-                                            }).format(tx.amount)}
+                                            {formatCurrency(tx.amount)}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-center space-x-3">
@@ -489,10 +535,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                                         Limite do Cartão
                                     </p>
                                     <p className="text-2xl font-bold text-foreground">
-                                        {new Intl.NumberFormat('pt-BR', {
-                                            style: 'currency',
-                                            currency: 'BRL'
-                                        }).format(account.limit || 0)}
+                                        {formatCurrency(account.limit)}
                                     </p>
                                 </>
                             ) : (
@@ -505,10 +548,7 @@ export const AccountsPage: React.FC<AccountsPageProps> = ({
                                                 : 'text-red-500'
                                         }`}
                                     >
-                                        {new Intl.NumberFormat('pt-BR', {
-                                            style: 'currency',
-                                            currency: 'BRL'
-                                        }).format(account.balance)}
+                                        {formatCurrency(account.balance)}
                                     </p>
                                 </>
                             )}
@@ -597,16 +637,10 @@ export const BudgetsPage: React.FC<BudgetsPageProps> = ({
                             </div>
                             <div className="text-right text-sm text-muted-foreground">
                                 <span className="text-foreground font-medium">
-                                    {new Intl.NumberFormat('pt-BR', {
-                                        style: 'currency',
-                                        currency: 'BRL'
-                                    }).format(item.spent)}
+                                    {formatCurrency(item.spent)}
                                 </span>{' '}
                                 /{' '}
-                                {new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL'
-                                }).format(item.amount)}
+                                {formatCurrency(item.amount)}
                             </div>
                         </div>
                     );
@@ -708,7 +742,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                         <h3 className="font-bold text-red-600 dark:text-red-300">Alerta de Vencimento</h3>
                         <p className="text-sm">
                             Você tem <strong>{overdueInvoicesCount} {overdueInvoicesCount > 1 ? 'faturas vencidas' : 'fatura vencida'}</strong>, totalizando{' '}
-                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(overdueInvoicesTotal)}</strong>.
+                            <strong>{formatCurrency(overdueInvoicesTotal)}</strong>.
                         </p>
                     </div>
                  </div>
@@ -731,15 +765,16 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                     new Date(b.dueDate).getTime() -
                                     new Date(a.dueDate).getTime()
                             );
-                        const currentInvoice = cardInvoices.find(
-                            inv => inv.status === 'Aberta'
-                        );
-                         const statusColor: { [key: string]: string } = {
+                        
+                        const statusColor: { [key: string]: string } = {
                             Aberta: 'text-yellow-500',
                             Paga: 'text-green-500',
                             Fechada: 'text-red-500',
                             Vencida: 'text-red-500 font-bold',
                         };
+                        
+                        const usedLimit = card.balance;
+                        const availableLimit = (card.limit || 0) - usedLimit;
 
                         return (
                             <div
@@ -769,36 +804,36 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between mb-6 pb-6 border-b border-border">
-                                    <div className="flex items-center">
-                                        <CreditCardIcon className="h-10 w-10 text-primary" />
-                                        <div className="ml-4">
-                                            <h2 className="text-xl font-bold text-foreground">
-                                                {card.name}
-                                            </h2>
-                                            <p className="text-sm text-muted-foreground">
-                                                Limite:{' '}
-                                                {new Intl.NumberFormat('pt-BR', {
-                                                    style: 'currency',
-                                                    currency: 'BRL'
-                                                }).format(card.limit || 0)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div>
+                                <div className="flex items-center mb-6">
+                                    <CreditCardIcon className="h-10 w-10 text-primary" />
+                                    <div className="ml-4">
+                                        <h2 className="text-xl font-bold text-foreground">
+                                            {card.name}
+                                        </h2>
                                         <p className="text-sm text-muted-foreground">
-                                            Fatura Atual
-                                        </p>
-                                        <p className="text-xl font-semibold text-yellow-500">
-                                            {new Intl.NumberFormat('pt-BR', {
-                                                style: 'currency',
-                                                currency: 'BRL'
-                                            }).format(currentInvoice?.amount || 0)}
+                                           Vencimento todo dia {card.due_day}
                                         </p>
                                     </div>
                                 </div>
+
+                                <div className="grid grid-cols-3 gap-4 text-center border-y border-border py-4 mb-6">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Limite Total</p>
+                                        <p className="font-semibold text-foreground">{formatCurrency(card.limit)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">Limite Utilizado</p>
+                                        <p className="font-semibold text-yellow-500">{formatCurrency(usedLimit)}</p>
+                                    </div>
+                                     <div>
+                                        <p className="text-sm text-muted-foreground">Limite Disponível</p>
+                                        <p className="font-semibold text-green-500">{formatCurrency(availableLimit)}</p>
+                                    </div>
+                                </div>
+
+
                                 <h3 className="font-semibold mb-4 text-foreground">
-                                    Últimas Faturas
+                                    Faturas
                                 </h3>
                                 {cardInvoices.length > 0 ? (
                                     <ul className="space-y-2">
@@ -837,10 +872,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                                         </div>
                                                         <div className="text-right">
                                                             <p className="font-semibold text-foreground">
-                                                                {new Intl.NumberFormat('pt-BR', {
-                                                                    style: 'currency',
-                                                                    currency: 'BRL'
-                                                                }).format(invoice.amount)}
+                                                                {formatCurrency(invoice.amount)}
                                                             </p>
                                                             <p className={`text-xs ${isOverdue ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
                                                                 Venc.{' '}
@@ -894,16 +926,7 @@ export const CardsPage: React.FC<CardsPageProps> = ({
                                                                                         }
                                                                                     </td>
                                                                                     <td className="py-2 pl-2 text-right text-red-500">
-                                                                                        {new Intl.NumberFormat(
-                                                                                            'pt-BR',
-                                                                                            {
-                                                                                                style: 'currency',
-                                                                                                currency:
-                                                                                                    'BRL'
-                                                                                            }
-                                                                                        ).format(
-                                                                                            tx.amount
-                                                                                        )}
+                                                                                        {formatCurrency(tx.amount)}
                                                                                     </td>
                                                                                 </tr>
                                                                             )
@@ -1669,10 +1692,7 @@ const PayFixedExpenseModal: React.FC<{
                                 {expense.fixedExpense?.name}
                             </p>
                             <p className="text-2xl font-bold text-yellow-500">
-                                {new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL'
-                                }).format(parseFloat(amount))}
+                                {formatCurrency(parseFloat(amount))}
                             </p>
                         </div>
 
@@ -2066,7 +2086,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
             <div className="bg-card rounded-xl border border-border shadow-sm p-4 mb-6 animate-element">
                 <h3 className="text-sm font-medium text-muted-foreground">Total do Mês Selecionado</h3>
                 <p className="text-2xl font-bold text-foreground mt-1">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalForCurrentMonth)}
+                    {formatCurrency(totalForCurrentMonth)}
                 </p>
             </div>
 
@@ -2077,7 +2097,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                         <h3 className="font-bold text-red-600 dark:text-red-300">Alerta de Vencimento</h3>
                         <p className="text-sm">
                             Você tem <strong>{overdueForCurrentMonth.length} {overdueForCurrentMonth.length > 1 ? 'despesas vencidas' : 'despesa vencida'}</strong> este mês, totalizando{' '}
-                            <strong>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(overdueTotalAmount)}</strong>.
+                            <strong>{formatCurrency(overdueTotalAmount)}</strong>.
                         </p>
                     </div>
                 </div>
@@ -2119,7 +2139,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                         {new Date(item.due_date).toLocaleDateString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                     </td>
                                     <td className="px-6 py-4 font-semibold text-right text-foreground">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.amount)}
+                                        {formatCurrency(item.amount)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                          <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
