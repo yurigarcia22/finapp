@@ -1,3 +1,4 @@
+
 export enum AccountType {
   WALLET = 'wallet',
   CHECKING = 'checking',
@@ -119,6 +120,7 @@ export interface FixedExpense {
   notes: string | null;
   is_active: boolean;
   category?: Category | null;
+  created_at?: string;
 }
 
 export interface MonthlyFixedExpense {

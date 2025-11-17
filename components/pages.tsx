@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { User } from '@supabase/supabase-js';
@@ -1824,12 +1825,24 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                 mfe => mfe.month === month
             );
 
-            const expensesToCreate = activeFixedExpenses.filter(
-                fe =>
-                    !existingMonthlyExpensesForMonth.some(
-                        mfe => mfe.fixed_expense_id === fe.id
-                    )
-            );
+            const expensesToCreate = activeFixedExpenses.filter(fe => {
+                const alreadyExists = existingMonthlyExpensesForMonth.some(
+                    mfe => mfe.fixed_expense_id === fe.id
+                );
+                if (alreadyExists) return false;
+
+                // Don't generate for months before the expense was created.
+                if (fe.created_at) {
+                    const creationDate = new Date(fe.created_at);
+                    const creationMonthStr = `${creationDate.getFullYear()}-${String(
+                        creationDate.getMonth() + 1
+                    ).padStart(2, '0')}`;
+                    if (month < creationMonthStr) {
+                        return false;
+                    }
+                }
+                return true;
+            });
 
             if (expensesToCreate.length > 0) {
                 const newMonthlyEntries = expensesToCreate.map(fe => {
