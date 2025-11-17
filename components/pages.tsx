@@ -1424,6 +1424,7 @@ interface FixedExpensesPageProps {
     ) => Promise<string | null>;
     onDataNeedsRefresh: () => void;
     onSaveOrUpdateFixedExpense: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => void;
+    onUpdateMonthlyFixedExpense: (expense: { id: string; amount: number }) => void;
     onDeleteFixedExpense: (monthlyExpense: MonthlyFixedExpense, mode: 'this' | 'all') => Promise<void>;
     overdueData: OverdueData;
 }
@@ -1437,8 +1438,8 @@ const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const FixedExpenseModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    onSave: (expense: Omit<FixedExpense, 'id' | 'is_active' | 'category'> | FixedExpense) => void;
-    expenseToEdit: FixedExpense | null;
+    onSave: (formData: { name: string; amount: string; dueDay: string; categoryId: string; notes: string | null }, scope?: 'this' | 'all') => void;
+    expenseToEdit: MonthlyFixedExpense | null;
     categories: Category[];
 }> = ({ isOpen, onClose, onSave, expenseToEdit, categories }) => {
     const [name, setName] = useState('');
@@ -1446,16 +1447,18 @@ const FixedExpenseModal: React.FC<{
     const [dueDay, setDueDay] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [notes, setNotes] = useState('');
+    const [updateScope, setUpdateScope] = useState<'this' | 'all'>('this');
     const isEditing = !!expenseToEdit;
 
     useEffect(() => {
         if (isOpen) {
             if (isEditing && expenseToEdit) {
-                setName(expenseToEdit.name);
-                setAmount(String(expenseToEdit.default_amount));
-                setDueDay(String(expenseToEdit.due_day));
-                setCategoryId(expenseToEdit.category_id || '');
-                setNotes(expenseToEdit.notes || '');
+                setName(expenseToEdit.fixedExpense?.name || '');
+                setAmount(String(expenseToEdit.amount));
+                setDueDay(String(expenseToEdit.fixedExpense?.due_day || ''));
+                setCategoryId(expenseToEdit.fixedExpense?.category_id || '');
+                setNotes(expenseToEdit.fixedExpense?.notes || '');
+                setUpdateScope('this'); // Sempre reseta para 'this' ao abrir
             } else {
                 setName('');
                 setAmount('');
@@ -1472,23 +1475,20 @@ const FixedExpenseModal: React.FC<{
             alert('É obrigatório selecionar uma categoria.');
             return;
         }
-        const payload = {
+        const formData = {
             name,
-            default_amount: parseFloat(amount),
-            due_day: parseInt(dueDay, 10),
-            category_id: categoryId,
+            amount,
+            dueDay,
+            categoryId,
             notes: notes || null
         };
 
-        if (isEditing && expenseToEdit) {
-            onSave({ ...payload, id: expenseToEdit.id, is_active: expenseToEdit.is_active });
-        } else {
-            onSave(payload);
-        }
-        onClose();
+        onSave(formData, isEditing ? updateScope : undefined);
     };
 
     if (!isOpen) return null;
+
+    const areFieldsDisabled = isEditing && updateScope === 'this';
 
     return (
         <ModalPortal>
@@ -1525,13 +1525,15 @@ const FixedExpenseModal: React.FC<{
                                 onChange={e => setName(e.target.value)}
                                 placeholder="Nome (ex: Aluguel)"
                                 required
-                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
+                                disabled={areFieldsDisabled}
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                             <input
                                 type="number"
+                                step="0.01"
                                 value={amount}
                                 onChange={e => setAmount(e.target.value)}
-                                placeholder="Valor Padrão"
+                                placeholder="Valor"
                                 required
                                 className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
                             />
@@ -1543,13 +1545,15 @@ const FixedExpenseModal: React.FC<{
                                 onChange={e => setDueDay(e.target.value)}
                                 placeholder="Dia do Vencimento"
                                 required
-                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground"
+                                disabled={areFieldsDisabled}
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                             <select
                                 value={categoryId}
                                 onChange={e => setCategoryId(e.target.value)}
                                 required
-                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground"
+                                disabled={areFieldsDisabled}
+                                className="w-full bg-secondary border border-border rounded-md p-3 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <option value="" disabled>
                                     Selecione uma categoria
@@ -1566,8 +1570,29 @@ const FixedExpenseModal: React.FC<{
                                 value={notes}
                                 onChange={e => setNotes(e.target.value)}
                                 placeholder="Observações (opcional)"
-                                className="w-full bg-secondary border border-border rounded-md p-3 h-24 text-foreground placeholder:text-muted-foreground resize-none"
+                                disabled={areFieldsDisabled}
+                                className="w-full bg-secondary border border-border rounded-md p-3 h-24 text-foreground placeholder:text-muted-foreground resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                             />
+                             {isEditing && (
+                                <div className="pt-2 border-t border-border">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2">Aplicar alterações a:</p>
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-border has-[:checked]:bg-primary/10 has-[:checked]:border-primary flex-1 transition-colors">
+                                            <input type="radio" name="updateScope" value="this" checked={updateScope === 'this'} onChange={() => setUpdateScope('this')} className="custom-checkbox" />
+                                            <span>Apenas este mês</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer p-3 rounded-md border border-border has-[:checked]:bg-primary/10 has-[:checked]:border-primary flex-1 transition-colors">
+                                            <input type="radio" name="updateScope" value="all" checked={updateScope === 'all'} onChange={() => setUpdateScope('all')} className="custom-checkbox" />
+                                            <span>Esta e as futuras</span>
+                                        </label>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2 px-1">
+                                        {updateScope === 'this' 
+                                            ? 'Altera o valor apenas para a conta deste mês.'
+                                            : 'Altera os dados padrão para esta e todas as futuras cobranças.'}
+                                    </p>
+                                </div>
+                            )}
                         </form>
                     </div>
 
@@ -1758,6 +1783,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     onSaveTransaction,
     onDataNeedsRefresh,
     onSaveOrUpdateFixedExpense,
+    onUpdateMonthlyFixedExpense,
     onDeleteFixedExpense,
     overdueData
 }) => {
@@ -1766,7 +1792,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     const [isAddModalOpen, setAddModalOpen] = useState(false);
     const [isPayModalOpen, setPayModalOpen] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState<MonthlyFixedExpense | null>(null);
-    const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
+    const [editingExpense, setEditingExpense] = useState<MonthlyFixedExpense | null>(null);
     const [deletingExpense, setDeletingExpense] = useState<MonthlyFixedExpense | null>(null);
     const [dropdownOpenId, setDropdownOpenId] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1866,7 +1892,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
         setPayModalOpen(true);
     };
 
-    const handleOpenEditModal = (expense: FixedExpense) => {
+    const handleOpenEditModal = (expense: MonthlyFixedExpense) => {
         setEditingExpense(expense);
         setAddModalOpen(true);
         setDropdownOpenId(null);
@@ -1887,6 +1913,40 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
     const handleCloseAddModal = () => {
         setAddModalOpen(false);
         setEditingExpense(null);
+    };
+    
+    const handleModalSave = (
+        formData: { name: string; amount: string; dueDay: string; categoryId: string; notes: string | null },
+        scope?: 'this' | 'all'
+    ) => {
+        if (scope && editingExpense) { // It's an edit
+            if (scope === 'this') {
+                onUpdateMonthlyFixedExpense({
+                    id: editingExpense.id,
+                    amount: parseFloat(formData.amount)
+                });
+            } else { // scope === 'all'
+                const payload: FixedExpense = {
+                    ...(editingExpense.fixedExpense!),
+                    name: formData.name,
+                    default_amount: parseFloat(formData.amount),
+                    due_day: parseInt(formData.dueDay, 10),
+                    category_id: formData.categoryId,
+                    notes: formData.notes
+                };
+                onSaveOrUpdateFixedExpense(payload);
+            }
+        } else { // It's a new expense
+            const payload = {
+                name: formData.name,
+                default_amount: parseFloat(formData.amount),
+                due_day: parseInt(formData.dueDay, 10),
+                category_id: formData.categoryId,
+                notes: formData.notes
+            };
+            onSaveOrUpdateFixedExpense(payload);
+        }
+        handleCloseAddModal();
     };
 
     const handleMarkAsPaid = async (
@@ -2065,7 +2125,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                                                 {dropdownOpenId === item.id && item.fixedExpense && (
                                                     <div ref={dropdownRef} className="origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-popover ring-1 ring-border focus:outline-none z-20 animate-element">
                                                         <div className="py-1">
-                                                            <button onClick={() => handleOpenEditModal(item.fixedExpense!)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
+                                                            <button onClick={() => handleOpenEditModal(item)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-popover-foreground hover:bg-accent">
                                                                 <EditIcon className="h-4 w-4" /> Editar
                                                             </button>
                                                             <button onClick={() => handleOpenDeleteModal(item)} className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-accent">
@@ -2087,7 +2147,7 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
             <FixedExpenseModal
                 isOpen={isAddModalOpen}
                 onClose={handleCloseAddModal}
-                onSave={onSaveOrUpdateFixedExpense}
+                onSave={handleModalSave}
                 expenseToEdit={editingExpense}
                 categories={categories}
             />

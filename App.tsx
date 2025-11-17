@@ -920,6 +920,22 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
     }
   };
   
+  const handleUpdateMonthlyFixedExpense = async (updatedExpense: { id: string; amount: number }) => {
+      const { error } = await supabase
+          .from('monthly_fixed_expenses')
+          .update({ amount: updatedExpense.amount })
+          .eq('id', updatedExpense.id)
+          .eq('user_id', user.id);
+
+      if (error) {
+          addNotification({ title: 'Erro', message: 'Não foi possível atualizar a despesa deste mês.', type: 'warning' });
+          console.error('Error updating monthly fixed expense:', error);
+      } else {
+          addNotification({ title: 'Sucesso', message: 'Despesa do mês atualizada!', type: 'success' });
+          await fetchData();
+      }
+  };
+  
   const handleDeleteFixedExpense = async (monthlyExpense: MonthlyFixedExpense, mode: 'this' | 'all') => {
       if (mode === 'this') {
           const { error } = await supabase
@@ -983,6 +999,7 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
                 onSaveTransaction={handleSaveTransaction}
                 onDataNeedsRefresh={fetchData}
                 onSaveOrUpdateFixedExpense={handleSaveOrUpdateFixedExpense}
+                onUpdateMonthlyFixedExpense={handleUpdateMonthlyFixedExpense}
                 onDeleteFixedExpense={handleDeleteFixedExpense}
                 overdueData={overdueData}
             />
