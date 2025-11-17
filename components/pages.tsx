@@ -1879,6 +1879,10 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
             );
     }, [monthlyFixedExpenses, currentMonthStr]);
 
+    const totalForCurrentMonth = useMemo(() => {
+        return expensesForCurrentMonth.reduce((sum, exp) => sum + exp.amount, 0);
+    }, [expensesForCurrentMonth]);
+
     const overdueForCurrentMonth = useMemo(() => {
         return overdueFixedExpenses.filter(ofe => ofe.month === currentMonthStr);
     }, [overdueFixedExpenses, currentMonthStr]);
@@ -2046,6 +2050,13 @@ export const FixedExpensesPage: React.FC<FixedExpensesPageProps> = ({
                 </ActionButton>
             </div>
             
+            <div className="bg-card rounded-xl border border-border shadow-sm p-4 mb-6 animate-element">
+                <h3 className="text-sm font-medium text-muted-foreground">Total do Mês Selecionado</h3>
+                <p className="text-2xl font-bold text-foreground mt-1">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalForCurrentMonth)}
+                </p>
+            </div>
+
             {overdueForCurrentMonth.length > 0 && (
                 <div className="mb-6 bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 px-6 py-4 rounded-xl flex items-center gap-4 animate-element">
                     <AlertTriangleIcon className="h-6 w-6 text-red-500 flex-shrink-0" />
