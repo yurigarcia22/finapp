@@ -225,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
         const data: KpiData[] = [
             { title: `Receitas (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(receitas) },
             { title: `Despesas (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(despesas) },
-            { title: `Poupança (${titleSuffix})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(poupanca) },
+            { title: `Movimentações (${titleSuffix.toLowerCase()})`, value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(poupanca) },
             { title: 'Balanço Total', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(balancoTotal) },
         ];
         return data;
