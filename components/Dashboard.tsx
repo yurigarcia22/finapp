@@ -277,7 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
 
     const upcomingBills = useMemo(() => {
         return invoices
-            .filter(inv => inv.status === 'Aberta' || inv.status === 'Fechada')
+            .filter(inv => (inv.status === 'Aberta' || inv.status === 'Fechada') && inv.amount > 0)
             .map(inv => {
                 const card = accounts.find(acc => acc.id === inv.cardId);
                 return {
@@ -374,7 +374,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ accounts, transactions, bu
                     <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                         <h2 className="text-lg font-semibold text-card-foreground mb-4">Próximos Vencimentos</h2>
                         <div className="space-y-2">
-                            {upcomingBills.map(bill => <UpcomingBillCard key={bill.id} bill={bill} />)}
+                            {upcomingBills.length > 0 ? (
+                                upcomingBills.map(bill => <UpcomingBillCard key={bill.id} bill={bill} />)
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">Nenhum vencimento próximo.</p>
+                            )}
                         </div>
                     </div>
                 </div>

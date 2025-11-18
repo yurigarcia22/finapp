@@ -671,13 +671,22 @@ const AppContent: React.FC<AppContentProps> = ({ session, profile, refetchProfil
             .eq('user_id', user.id);
     }
     
+    const paymentCategory = categories.find(c => c.name === 'Contas' && c.type === CategoryType.EXPENSE) || null;
+    if (!paymentCategory) {
+        addNotification({
+            title: 'Aviso de Categoria',
+            message: 'A categoria padrão "Contas" não foi encontrada. O pagamento foi registrado sem categoria.',
+            type: 'info'
+        });
+    }
+    
     // The payment transaction itself is handled by handleSaveTransaction, which will update the payment account's balance
     await handleSaveTransaction({
         description: `Pagamento Fatura ${invoiceToPay.month}`,
         amount: amount,
         date: new Date().toISOString().split('T')[0],
         type: CategoryType.EXPENSE,
-        category: categories.find(c => c.name === 'Contas')!, // Find a more appropriate category if needed
+        category: paymentCategory,
         accountId: paymentAccountId,
         status: TransactionStatus.CLEARED
     });

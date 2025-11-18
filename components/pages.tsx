@@ -134,7 +134,7 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
         const singleTransactions: Transaction[] = [];
 
         transactions.forEach(tx => {
-            const match = tx.description.match(/(.+) \((\d+)\/(\d+)\)$/);
+            const match = typeof tx.description === 'string' && tx.description.match(/(.+) \((\d+)\/(\d+)\)$/);
             if (match) {
                 const [, baseDesc, , total] = match;
                 const key = `${baseDesc}_${total}_${tx.accountId}`;
@@ -151,11 +151,12 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({
             group.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             const representative = group[0];
             const totalAmount = group.reduce((sum, tx) => sum + tx.amount, 0);
+            const descMatch = representative.description.match(/(.+) \(\d+\/\d+\)$/);
             
             return {
                 ...representative,
                 id: representative.id, // Use the ID of the first installment as the key for deletion logic
-                description: representative.description.match(/(.+) \(\d+\/\d+\)$/)![1],
+                description: descMatch ? descMatch[1] : representative.description,
                 amount: totalAmount,
                 installments: group.length,
                 isGroup: true,
